@@ -43,7 +43,6 @@
             vertical-align: middle;
             transition: transform 0.3s ease;
         }
-
         .logo-img:hover {
             transform: scale(1.05);
         }
@@ -62,12 +61,13 @@
             color: var(--color-primary) !important;
         }
         .btn-outline:hover { background: rgba(124, 154, 146, 0.1); }
-        main { padding: 40px; max-width: 1200px; margin: 0 auto; }
+        main { padding: 40px; max-width: 1000px; margin: 0 auto; }
         .card {
             background: var(--color-surface);
             border-radius: var(--radius);
             padding: 24px;
             margin-bottom: 20px;
+            box-shadow: var(--shadow);
         }
         h2 { font-weight: 400; margin-bottom: 5px; }
         h3 { font-weight: 400; color: var(--color-text-secondary); margin-bottom: 15px; font-size: 1rem; }
@@ -82,47 +82,25 @@
             border-radius: var(--radius);
             padding: 20px;
             text-align: center;
+            box-shadow: var(--shadow);
         }
         .stat-label { font-size: 0.75rem; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 1px; }
         .stat-value { font-size: 1.8rem; font-weight: 300; margin-top: 5px; }
         .timeline {
             height: 12px;
             width: 100%;
-            background: var(--color-surface);
+            background: rgba(124, 154, 146, 0.1);
             border-radius: 6px;
             overflow: hidden;
             display: flex;
-            margin: 20px 0 30px;
+            margin: 20px 0;
         }
         .timeline-segment { height: 100%; transition: opacity 0.2s; }
         .timeline-segment:hover { opacity: 0.7; }
         .content-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 30px;
-        }
-        .screenshot-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .screenshot-card {
-            background: var(--color-surface);
-            border-radius: 12px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: transform 0.3s;
-        }
-        .screenshot-card:hover { transform: scale(1.02); }
-        .screenshot-card img {
-            width: 100%;
-            aspect-ratio: 16/9;
-            object-fit: cover;
-        }
-        .screenshot-info {
-            padding: 10px;
-            font-size: 0.8rem;
-            color: var(--color-text-secondary);
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }
         .issue-tag {
             display: inline-block;
@@ -143,29 +121,17 @@
             font-size: 0.9rem;
             color: var(--color-text-secondary);
         }
-        #modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
         }
-        #modal img { max-width: 90%; max-height: 80%; border-radius: 8px; }
-        #modal-close {
-            position: absolute;
-            top: 20px; right: 30px;
-            color: white;
-            font-size: 2rem;
-            cursor: pointer;
-        }
-        #modal-caption { color: var(--color-text-secondary); margin-top: 15px; }
         @media (max-width: 900px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .content-grid { grid-template-columns: 1fr; }
             main { padding: 20px; }
+            header { padding: 15px 20px; }
         }
     </style>
 </head>
@@ -176,7 +142,7 @@
         </a>
         <nav>
             <a href="/sessions">All Sessions</a>
-            <button onclick="downloadPDF()" class="btn-outline">Download PDF</button>
+            <a href="/" class="btn-outline">New Session</a>
         </nav>
     </header>
 
@@ -211,26 +177,29 @@
             </div>
         </div>
 
-        <h3>Session Timeline</h3>
-        <div class="timeline" id="session-timeline"></div>
+        <div class="card">
+            <h3>Session Timeline</h3>
+            <div class="timeline" id="session-timeline"></div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--color-text-secondary);">
+                <span>Session Start</span>
+                <span>Session End</span>
+            </div>
+        </div>
 
         <div class="content-grid">
-            <section>
-                <h3>Snapshots</h3>
-                <div class="screenshot-grid" id="screenshot-gallery"></div>
-            </section>
-
-            <aside>
-                <div class="card">
-                    <h3>Common Issues</h3>
-                    <div id="common-issues"></div>
+            <div class="card">
+                <h3>Common Issues</h3>
+                <div id="common-issues">
+                    <div class="empty-state">No issues recorded</div>
                 </div>
+            </div>
 
-                <div class="card">
-                    <h3>Recommendations</h3>
-                    <ul class="recommendation-list" id="recommendations"></ul>
-                </div>
-            </aside>
+            <div class="card">
+                <h3>Recommendations</h3>
+                <ul class="recommendation-list" id="recommendations">
+                    <li class="empty-state" style="background: none; border: none; padding: 20px;">Loading...</li>
+                </ul>
+            </div>
         </div>
     </main>
 
@@ -238,13 +207,7 @@
         <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a></p>
     </footer>
 
-    <div id="modal">
-        <span id="modal-close">&times;</span>
-        <img id="modal-img" src="">
-        <div id="modal-caption"></div>
-    </div>
-
     <script>const SESSION_ID = "{{session_id}}";</script>
-    <script src="/static/js/session-review.js?v=3"></script>
+    <script src="/static/js/session-review.js?v=4"></script>
 </body>
 </html>

@@ -2,16 +2,13 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 import os
 import time
-import base64
 from datetime import datetime
 from typing import Dict, Optional
 from core.posture_analyzer import PostureAnalyzer
 from core.calibration import Calibrator
 from services.session_manager import SessionManager
-from services.logger import PostureLogger
 from models.schemas import CalibrationProfile, PostureStatus
 from models.database import save_session, save_log
-import config as cfg
 
 router = APIRouter()
 
@@ -40,41 +37,6 @@ class RateLimiter:
 
 # === UTILITY FUNCTIONS ===
 
-def load_profile() -> Optional[CalibrationProfile]:
-    """Load calibration profile from disk if it exists.
-
-    If the profile is corrupted (invalid JSON or missing required fields),
-    it is automatically deleted to allow fresh calibration.
-    """
-    if not os.path.exists(cfg.PROFILE_PATH):
-        return None
-    try:
-        with open(cfg.PROFILE_PATH, "r") as f:
-            data = json.load(f)
-            return CalibrationProfile(**data)
-    except (json.JSONDecodeError, TypeError, KeyError, ValueError) as e:
-        # Profile is corrupted - delete it so user can recalibrate
-        try:
-            os.remove(cfg.PROFILE_PATH)
-            print(f"[PROFILE] Deleted corrupted profile: {e}")
-        except OSError:
-            pass
-        return None
-    except Exception:
-        return None
-
-
-def save_profile(profile: CalibrationProfile) -> bool:
-    """Save calibration profile to disk. Returns True on success."""
-    try:
-        os.makedirs(os.path.dirname(cfg.PROFILE_PATH), exist_ok=True)
-        with open(cfg.PROFILE_PATH, "w") as f:
-            f.write(profile.json())
-        return True
-    except Exception:
-        return False
-
-
 def parse_landmarks(raw_landmarks: Dict) -> Dict[int, Dict]:
     """Convert string-keyed landmark dict to int-keyed dict expected by analyzer."""
     landmarks = {}
@@ -94,11 +56,12 @@ def parse_landmarks(raw_landmarks: Dict) -> Dict[int, Dict]:
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    profile = load_profile()
+    # Profile is now stored client-side (localStorage)
+    # We receive it from the client when they connect or after calibration
+    profile: Optional[CalibrationProfile] = None
     analyzer = PostureAnalyzer(profile)
     calibrator = Calibrator()
     session_manager = SessionManager()
-    logger = None
     audio_enabled = True
     rate_limiter = RateLimiter(max_messages=15, window_seconds=1.0)  # 15 msgs/sec max
 
@@ -113,7 +76,24 @@ async def websocket_endpoint(websocket: WebSocket):
             message = json.loads(data)
             action = message.get('action')
 
-            if action == 'calibrate_landmarks':
+            if action == 'set_profile':
+                # Client sends their stored profile on connect
+                profile_data = message.get('profile')
+                if profile_data:
+                    try:
+                        profile = CalibrationProfile(**profile_data)
+                        analyzer.profile = profile
+                        await websocket.send_json({
+                            "type": "profile_loaded",
+                            "data": {"success": True}
+                        })
+                    except Exception as e:
+                        await websocket.send_json({
+                            "type": "profile_loaded",
+                            "data": {"success": False, "error": str(e)}
+                        })
+
+            elif action == 'calibrate_landmarks':
                 raw_landmarks = message.get('landmarks', {})
                 if not raw_landmarks:
                     await websocket.send_json({
@@ -136,7 +116,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     if calibrator.is_complete():
                         new_profile = calibrator.finalize()
                         analyzer.profile = new_profile
-                        save_profile(new_profile)
+                        profile = new_profile
+                        # Send profile to client to store in localStorage
                         await websocket.send_json({
                             "type": "calibration_complete",
                             "data": {"profile": json.loads(new_profile.json())}
@@ -196,7 +177,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif action == 'start_session':
                 session_id = session_manager.start()
-                logger = PostureLogger(session_id)
                 print(f"[SESSION] Started new session: {session_id}")
                 await websocket.send_json({"type": "session_started", "data": {"session_id": session_id}})
 
@@ -224,7 +204,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     print(f"[SESSION] Updated stats from frontend - Good: {session_manager.good_time_sec:.1f}s, Bad: {session_manager.bad_time_sec:.1f}s")
 
             elif action == 'log_posture':
-                # Receive screenshot and log from frontend
+                # Log posture data (without screenshots)
                 if not session_manager.is_active:
                     continue
 
@@ -253,62 +233,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             }
                             issues.append(clean_issue)
 
-                screenshot_b64 = message.get('screenshot', '')
-
-                screenshot_path = ''
-                if screenshot_b64 and isinstance(screenshot_b64, str) and screenshot_b64.startswith('data:image'):
-                    try:
-                        # Validate image format
-                        if not screenshot_b64.startswith('data:image/jpeg') and not screenshot_b64.startswith('data:image/png'):
-                            raise ValueError("Invalid image format - only JPEG and PNG allowed")
-
-                        # Check size limit before decoding
-                        if len(screenshot_b64) > cfg.MAX_SCREENSHOT_SIZE_BYTES * 1.4:  # Base64 is ~1.33x larger
-                            raise ValueError(f"Screenshot too large (max {cfg.MAX_UPLOAD_SIZE_MB}MB)")
-
-                        # Ensure screenshot directory exists
-                        os.makedirs(cfg.SCREENSHOT_DIR, exist_ok=True)
-
-                        # Decode base64 image
-                        header, data = screenshot_b64.split(',', 1)
-                        image_data = base64.b64decode(data)
-
-                        # Verify decoded size
-                        if len(image_data) > cfg.MAX_SCREENSHOT_SIZE_BYTES:
-                            raise ValueError("Decoded image too large")
-
-                        # Validate filename components (prevent path traversal)
-                        session_id = session_manager.session_id
-                        if not session_id or '..' in session_id or '/' in session_id or '\\' in session_id:
-                            raise ValueError("Invalid session ID")
-
-                        # Save to file with safe filename
-                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                        filename = f"{session_id}_{timestamp}.jpg"
-                        screenshot_path = os.path.join(cfg.SCREENSHOT_DIR, filename)
-
-                        # Ensure we're writing within the screenshot directory
-                        real_path = os.path.realpath(screenshot_path)
-                        real_dir = os.path.realpath(cfg.SCREENSHOT_DIR)
-                        if not real_path.startswith(real_dir):
-                            raise ValueError("Invalid file path")
-
-                        with open(screenshot_path, 'wb') as f:
-                            f.write(image_data)
-                        print(f"[SCREENSHOT] Saved: {filename}")
-                    except Exception as e:
-                        print(f"[SCREENSHOT] Failed to save: {e}")
-                        screenshot_path = ''
-
-                # Save log entry
+                # Save log entry (no screenshot)
                 log_data = {
                     "session_id": session_manager.session_id,
                     "timestamp": datetime.now(),
                     "status": status,
                     "score": score,
                     "issues": issues,
-                    "metrics": {},
-                    "screenshot_path": screenshot_path
+                    "metrics": {}
                 }
                 success, error = await save_log(log_data)
                 if success:
@@ -341,7 +273,3 @@ async def websocket_endpoint(websocket: WebSocket):
             print(f"[SESSION] Failed to auto-save: {e}")
     else:
         print("[WS] No active session to save")
-
-    # Cleanup resources
-    if logger:
-        logger = None

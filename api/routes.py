@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-import os
-import json
 import re
-import aiosqlite
-import config as cfg
-from models.schemas import CalibrationProfile
-from models.database import get_all_sessions, get_session, get_session_logs
+from models.database import (
+    get_all_sessions, get_session, get_session_logs,
+    delete_session, clear_all_sessions
+)
 from services.report_generator import ReportGenerator
 
 router = APIRouter()
@@ -42,31 +40,6 @@ async def review(request: Request, session_id: str):
     if not validate_session_id(session_id):
         raise HTTPException(status_code=400, detail="Invalid session ID format")
     return templates.TemplateResponse("review.html", {"request": request, "session_id": session_id})
-
-
-# === Profile API ===
-
-@router.get("/api/profile")
-async def api_get_profile():
-    if not os.path.exists(cfg.PROFILE_PATH):
-        raise HTTPException(status_code=404, detail="Profile not found")
-    try:
-        with open(cfg.PROFILE_PATH, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        raise HTTPException(status_code=500, detail="Failed to read profile")
-
-
-@router.post("/api/profile")
-async def api_save_profile(profile: CalibrationProfile):
-    try:
-        import aiofiles
-        os.makedirs(cfg.DATA_DIR, exist_ok=True)
-        async with aiofiles.open(cfg.PROFILE_PATH, "w") as f:
-            await f.write(profile.json())
-        return {"status": "success"}
-    except IOError as e:
-        raise HTTPException(status_code=500, detail="Failed to save profile")
 
 
 # === Sessions API ===
@@ -111,37 +84,17 @@ async def api_delete_session(session_id: str):
     if not validate_session_id(session_id):
         raise HTTPException(status_code=400, detail="Invalid session ID")
 
-    try:
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            # Check if session exists
-            cursor = await db.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,))
-            if not await cursor.fetchone():
-                raise HTTPException(status_code=404, detail="Session not found")
+    # Check if session exists
+    session = await get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
 
-            # Delete session and related logs
-            await db.execute("DELETE FROM logs WHERE session_id = ?", (session_id,))
-            await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-            await db.commit()
-
-        # Clean up screenshots for this session (with path traversal protection)
-        try:
-            real_screenshot_dir = os.path.realpath(cfg.SCREENSHOT_DIR)
-            for f in os.listdir(cfg.SCREENSHOT_DIR):
-                if f.startswith(session_id):
-                    filepath = os.path.join(cfg.SCREENSHOT_DIR, f)
-                    # Verify file is within screenshot directory
-                    real_filepath = os.path.realpath(filepath)
-                    if real_filepath.startswith(real_screenshot_dir) and os.path.isfile(real_filepath):
-                        os.remove(real_filepath)
-        except OSError:
-            pass  # Non-critical
-
-        return {"status": "success"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
+    # Delete session (logs are deleted via CASCADE)
+    success = await delete_session(session_id)
+    if not success:
         raise HTTPException(status_code=500, detail="Failed to delete session")
+
+    return {"status": "success"}
 
 
 @router.get("/api/sessions/{session_id}/export")
@@ -152,26 +105,7 @@ async def api_export_session(session_id: str):
 
 @router.post("/api/sessions/clear")
 async def api_clear_all_sessions():
-    try:
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            await db.execute("DELETE FROM logs")
-            await db.execute("DELETE FROM sessions")
-            await db.commit()
-
-        # Clear screenshots (with path traversal protection)
-        try:
-            if os.path.exists(cfg.SCREENSHOT_DIR):
-                real_screenshot_dir = os.path.realpath(cfg.SCREENSHOT_DIR)
-                for f in os.listdir(cfg.SCREENSHOT_DIR):
-                    filepath = os.path.join(cfg.SCREENSHOT_DIR, f)
-                    real_filepath = os.path.realpath(filepath)
-                    # Only delete files within the screenshot directory
-                    if real_filepath.startswith(real_screenshot_dir) and os.path.isfile(real_filepath):
-                        os.remove(real_filepath)
-        except OSError:
-            pass  # Non-critical
-
-        return {"status": "success"}
-
-    except Exception as e:
+    success = await clear_all_sessions()
+    if not success:
         raise HTTPException(status_code=500, detail="Failed to clear sessions")
+    return {"status": "success"}

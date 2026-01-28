@@ -1,11 +1,11 @@
 fastapi
-uvicorn
-opencv-python
+uvicorn[standard]
+opencv-python-headless
 mediapipe
 numpy
 pillow
 pydantic
-aiosqlite
+asyncpg
 python-multipart
 jinja2
 python-dotenv

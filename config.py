@@ -10,11 +10,10 @@ except ImportError:
 # Base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Data storage - prioritizing environment variables for production
-DATA_DIR = os.getenv("DATA_DIR", os.path.join(BASE_DIR, "data"))
-SCREENSHOT_DIR = os.path.join(DATA_DIR, "screenshots")
-PROFILE_PATH = os.path.join(DATA_DIR, "profile.json")
-DB_PATH = os.path.join(DATA_DIR, "sessions.db")
+# Database - Supabase PostgreSQL
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
 
 # Posture Thresholds
 FORWARD_HEAD_THRESHOLD_CM = 5.0
@@ -59,7 +58,3 @@ SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-change-in-produ
 COOKIE_SECURE = ENVIRONMENT == "production"
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = "strict"
-
-# Content limits
-MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))
-MAX_SCREENSHOT_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024

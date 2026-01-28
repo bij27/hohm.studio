@@ -1,8 +1,10 @@
-import aiosqlite
-import os
+import asyncpg
 import config as cfg
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Any
+
+# Global connection pool
+_pool: Optional[asyncpg.Pool] = None
 
 
 class DatabaseError(Exception):
@@ -57,41 +59,66 @@ def _sanitize_number(value: Any, min_val: float, max_val: float, default: float)
         return default
 
 
+async def get_pool() -> asyncpg.Pool:
+    """Get or create the connection pool."""
+    global _pool
+    if _pool is None:
+        _pool = await asyncpg.create_pool(
+            cfg.DATABASE_URL,
+            min_size=1,
+            max_size=10,
+            command_timeout=30
+        )
+    return _pool
+
+
+async def close_pool():
+    """Close the connection pool."""
+    global _pool
+    if _pool:
+        await _pool.close()
+        _pool = None
+
+
 async def init_db():
     """Initialize database with required tables and indexes."""
     try:
-        os.makedirs(os.path.dirname(cfg.DB_PATH), exist_ok=True)
-
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            await db.execute('''
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            # Create sessions table
+            await conn.execute('''
                 CREATE TABLE IF NOT EXISTS sessions (
                     id TEXT PRIMARY KEY,
-                    start_time TEXT,
-                    end_time TEXT,
+                    start_time TIMESTAMPTZ,
+                    end_time TIMESTAMPTZ,
                     duration_minutes REAL,
                     good_posture_percentage REAL,
                     average_score REAL,
-                    total_logs INTEGER
+                    total_logs INTEGER,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             ''')
-            await db.execute('''
+
+            # Create logs table
+            await conn.execute('''
                 CREATE TABLE IF NOT EXISTS logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT,
-                    timestamp TEXT,
+                    id SERIAL PRIMARY KEY,
+                    session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE,
+                    timestamp TIMESTAMPTZ,
                     status TEXT,
                     score REAL,
-                    issues TEXT,
-                    metrics TEXT,
-                    screenshot_path TEXT,
-                    FOREIGN KEY(session_id) REFERENCES sessions(id)
+                    issues JSONB,
+                    metrics JSONB,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             ''')
-            # Add index for faster queries by session_id
-            await db.execute('''
+
+            # Create index for faster queries by session_id
+            await conn.execute('''
                 CREATE INDEX IF NOT EXISTS idx_logs_session_id ON logs(session_id)
             ''')
-            await db.commit()
+
+            print("[DB] Database initialized successfully")
             return True
     except Exception as e:
         print(f"[DB] Failed to initialize database: {e}")
@@ -101,12 +128,12 @@ async def init_db():
 async def session_exists(session_id: str) -> bool:
     """Check if a session already exists in the database."""
     try:
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            cursor = await db.execute(
-                'SELECT 1 FROM sessions WHERE id = ? LIMIT 1',
-                (session_id,)
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                'SELECT 1 FROM sessions WHERE id = $1 LIMIT 1',
+                session_id
             )
-            row = await cursor.fetchone()
             return row is not None
     except Exception:
         return False
@@ -137,26 +164,27 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
         score = _sanitize_number(session_data['average_score'], 0, 10, 0)
         logs = int(_sanitize_number(session_data['total_logs'], 0, 1000000, 0))
 
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            await db.execute('''
-                INSERT OR IGNORE INTO sessions
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute('''
+                INSERT INTO sessions
                 (id, start_time, end_time, duration_minutes, good_posture_percentage, average_score, total_logs)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (id) DO NOTHING
+            ''',
                 session_id,
-                session_data['start_time'].isoformat(),
-                session_data['end_time'].isoformat(),
+                session_data['start_time'],
+                session_data['end_time'],
                 round(duration, 2),
                 round(percentage, 2),
                 round(score, 2),
                 logs
-            ))
-            await db.commit()
+            )
             return True, ""
 
-    except aiosqlite.IntegrityError as e:
+    except asyncpg.UniqueViolationError:
         # Duplicate key - not really an error
-        print(f"[DB] Session {session_id} duplicate: {e}")
+        print(f"[DB] Session {session_id} duplicate")
         return True, "Session already saved"
     except Exception as e:
         print(f"[DB] Failed to save session: {e}")
@@ -179,31 +207,34 @@ async def save_log(log_data: dict) -> tuple[bool, str]:
         # Sanitize score
         score = _sanitize_number(log_data.get('score', 0), 0, 10, 0)
 
-        # Sanitize issues and metrics (ensure they're valid JSON)
+        # Sanitize issues and metrics (ensure they're valid for JSONB)
         try:
-            issues = json.dumps(log_data.get('issues', []))
+            issues = log_data.get('issues', [])
+            if not isinstance(issues, list):
+                issues = []
         except (TypeError, ValueError):
-            issues = '[]'
+            issues = []
 
         try:
-            metrics = json.dumps(log_data.get('metrics', {}))
+            metrics = log_data.get('metrics', {})
+            if not isinstance(metrics, dict):
+                metrics = {}
         except (TypeError, ValueError):
-            metrics = '{}'
+            metrics = {}
 
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            await db.execute('''
-                INSERT INTO logs (session_id, timestamp, status, score, issues, metrics, screenshot_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute('''
+                INSERT INTO logs (session_id, timestamp, status, score, issues, metrics)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            ''',
                 log_data['session_id'],
-                log_data['timestamp'].isoformat(),
+                log_data['timestamp'],
                 str(log_data.get('status', 'unknown'))[:20],  # Limit status length
                 round(score, 2),
-                issues,
-                metrics,
-                log_data.get('screenshot_path', '')
-            ))
-            await db.commit()
+                json.dumps(issues),
+                json.dumps(metrics)
+            )
             return True, ""
 
     except Exception as e:
@@ -214,12 +245,14 @@ async def save_log(log_data: dict) -> tuple[bool, str]:
 async def get_all_sessions() -> list[dict]:
     """Retrieve all sessions, ordered by start time descending."""
     try:
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute('''
-                SELECT * FROM sessions ORDER BY start_time DESC
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch('''
+                SELECT id, start_time, end_time, duration_minutes,
+                       good_posture_percentage, average_score, total_logs
+                FROM sessions
+                ORDER BY start_time DESC
             ''')
-            rows = await cursor.fetchall()
             return [dict(row) for row in rows]
     except Exception as e:
         print(f"[DB] Failed to get sessions: {e}")
@@ -232,13 +265,14 @@ async def get_session(session_id: str) -> Optional[dict]:
         return None
 
     try:
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
-                'SELECT * FROM sessions WHERE id = ?',
-                (session_id,)
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                '''SELECT id, start_time, end_time, duration_minutes,
+                          good_posture_percentage, average_score, total_logs
+                   FROM sessions WHERE id = $1''',
+                session_id
             )
-            row = await cursor.fetchone()
             return dict(row) if row else None
     except Exception as e:
         print(f"[DB] Failed to get session {session_id}: {e}")
@@ -251,14 +285,61 @@ async def get_session_logs(session_id: str) -> list[dict]:
         return []
 
     try:
-        async with aiosqlite.connect(cfg.DB_PATH) as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
-                'SELECT * FROM logs WHERE session_id = ? ORDER BY timestamp',
-                (session_id,)
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                '''SELECT id, session_id, timestamp, status, score, issues, metrics
+                   FROM logs WHERE session_id = $1 ORDER BY timestamp''',
+                session_id
             )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            result = []
+            for row in rows:
+                row_dict = dict(row)
+                # Parse JSONB fields back to Python objects
+                if row_dict.get('issues'):
+                    try:
+                        row_dict['issues'] = json.loads(row_dict['issues']) if isinstance(row_dict['issues'], str) else row_dict['issues']
+                    except json.JSONDecodeError:
+                        row_dict['issues'] = []
+                if row_dict.get('metrics'):
+                    try:
+                        row_dict['metrics'] = json.loads(row_dict['metrics']) if isinstance(row_dict['metrics'], str) else row_dict['metrics']
+                    except json.JSONDecodeError:
+                        row_dict['metrics'] = {}
+                result.append(row_dict)
+            return result
     except Exception as e:
         print(f"[DB] Failed to get logs for session {session_id}: {e}")
         return []
+
+
+async def delete_session(session_id: str) -> bool:
+    """Delete a session and its logs."""
+    if not session_id or not isinstance(session_id, str):
+        return False
+
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            # Logs are deleted automatically via CASCADE
+            result = await conn.execute(
+                'DELETE FROM sessions WHERE id = $1',
+                session_id
+            )
+            return 'DELETE 1' in result
+    except Exception as e:
+        print(f"[DB] Failed to delete session {session_id}: {e}")
+        return False
+
+
+async def clear_all_sessions() -> bool:
+    """Delete all sessions and logs."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            # Logs are deleted automatically via CASCADE
+            await conn.execute('DELETE FROM sessions')
+            return True
+    except Exception as e:
+        print(f"[DB] Failed to clear sessions: {e}")
+        return False
