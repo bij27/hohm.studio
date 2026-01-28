@@ -2,6 +2,7 @@ import asyncpg
 import config as cfg
 import json
 import math
+import traceback
 from typing import Optional, Any
 
 # Constants
@@ -151,6 +152,8 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
     Save session to database with validation.
     Returns (success, error_message).
     """
+    print(f"[DB] save_session called with data: {session_data}")
+
     # Validate data
     is_valid, error = _validate_session_data(session_data)
     if not is_valid:
@@ -158,6 +161,7 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
         return False, error
 
     session_id = session_data['session_id']
+    print(f"[DB] Attempting to save session: {session_id}")
 
     try:
         # Check for duplicate
@@ -171,9 +175,13 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
         score = _sanitize_number(session_data['average_score'], 0, 10, 0)
         logs = int(_sanitize_number(session_data['total_logs'], 0, MAX_LOGS_PER_SESSION, 0))
 
+        print(f"[DB] Sanitized values - duration: {duration}, percentage: {percentage}, score: {score}, logs: {logs}")
+
         pool = await get_pool()
+        print(f"[DB] Got pool, acquiring connection...")
         async with pool.acquire() as conn:
-            await conn.execute('''
+            print(f"[DB] Connection acquired, executing INSERT...")
+            result = await conn.execute('''
                 INSERT INTO sessions
                 (id, start_time, end_time, duration_minutes, good_posture_percentage, average_score, total_logs)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -187,6 +195,7 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
                 round(score, 2),
                 logs
             )
+            print(f"[DB] INSERT result: {result}")
             return True, ""
 
     except asyncpg.UniqueViolationError:
@@ -195,6 +204,7 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
         return True, "Session already saved"
     except Exception as e:
         print(f"[DB] Failed to save session: {e}")
+        print(f"[DB] Traceback: {traceback.format_exc()}")
         return False, str(e)
 
 

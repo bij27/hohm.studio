@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 import re
 from models.database import (
     get_all_sessions, get_session, get_session_logs,
-    delete_session, clear_all_sessions
+    delete_session, clear_all_sessions, get_pool
 )
 from services.report_generator import ReportGenerator
 
@@ -109,3 +109,44 @@ async def api_clear_all_sessions():
     if not success:
         raise HTTPException(status_code=500, detail="Failed to clear sessions")
     return {"status": "success"}
+
+
+@router.get("/api/db-health")
+async def db_health_check():
+    """Check database connectivity and table existence."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            # Test basic connectivity
+            result = await conn.fetchval("SELECT 1")
+
+            # Check if tables exist
+            sessions_exists = await conn.fetchval(
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'sessions')"
+            )
+            logs_exists = await conn.fetchval(
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'logs')"
+            )
+
+            # Count sessions
+            session_count = await conn.fetchval("SELECT COUNT(*) FROM sessions") if sessions_exists else 0
+            log_count = await conn.fetchval("SELECT COUNT(*) FROM logs") if logs_exists else 0
+
+            return {
+                "status": "healthy",
+                "connected": result == 1,
+                "tables": {
+                    "sessions": sessions_exists,
+                    "logs": logs_exists
+                },
+                "counts": {
+                    "sessions": session_count,
+                    "logs": log_count
+                }
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
