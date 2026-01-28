@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="hohm.studio - AI Posture Correction",
-    description="Your "ohm" at home. AI-powered posture correction for a healthier, more zen lifestyle.",
+    description='Your "ohm" at home. AI-powered posture correction for a healthier, more zen lifestyle.',
     version="1.0.0",
     lifespan=lifespan,
     # Disable docs in production for security
