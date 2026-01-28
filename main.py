@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
@@ -57,6 +58,15 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "environment": cfg.ENVIRONMENT}
+
+# SEO & Ads files
+@app.get("/robots.txt")
+async def robots():
+    return FileResponse("static/robots.txt", media_type="text/plain")
+
+@app.get("/ads.txt")
+async def ads():
+    return FileResponse("static/ads.txt", media_type="text/plain")
 
 @app.get("/privacy")
 async def privacy_page(request):

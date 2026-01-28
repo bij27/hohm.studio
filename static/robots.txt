@@ -1,3 +1,10 @@
 User-agent: *
 Allow: /
+
+User-agent: Mediapartners-Google
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
 Sitemap: https://hohm.studio/sitemap.xml
