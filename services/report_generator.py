@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 import json
 from models.schemas import PostureIssueType
 
@@ -7,6 +7,11 @@ class ReportGenerator:
     """
     Generates summary statistics and recommendations based on session logs.
     """
+
+    # Thresholds for session-level warnings
+    GOOD_POSTURE_THRESHOLD = 60  # Below this % triggers recommendations
+    AVERAGE_SCORE_THRESHOLD = 7.0  # Below this triggers recommendations
+
     @staticmethod
     def identify_common_issues(logs: List[Dict]) -> List[PostureIssueType]:
         issue_counts = {}
@@ -47,8 +52,14 @@ class ReportGenerator:
         return result
 
     @staticmethod
-    def get_recommendations(common_issues: List[PostureIssueType]) -> List[str]:
+    def get_recommendations(
+        common_issues: List[PostureIssueType],
+        good_posture_percentage: Optional[float] = None,
+        average_score: Optional[float] = None
+    ) -> List[str]:
         recommendations = []
+
+        # Add issue-specific recommendations
         for issue in common_issues:
             if issue == PostureIssueType.FORWARD_HEAD:
                 recommendations.append("Position your monitor at eye level to prevent looking down.")
@@ -61,7 +72,24 @@ class ReportGenerator:
             elif issue == PostureIssueType.SCREEN_DISTANCE:
                 recommendations.append("Increase font size or move your monitor closer so you don't lean in to read.")
 
+        # If no specific issues but session stats are poor, add general recommendations
         if not recommendations:
-            recommendations.append("Great job! Keep up the good posture.")
+            needs_improvement = False
+
+            if good_posture_percentage is not None and good_posture_percentage < ReportGenerator.GOOD_POSTURE_THRESHOLD:
+                needs_improvement = True
+            if average_score is not None and average_score < ReportGenerator.AVERAGE_SCORE_THRESHOLD:
+                needs_improvement = True
+
+            if needs_improvement:
+                # Add general posture improvement recommendations
+                recommendations.append("Take regular breaks to stand and stretch every 30 minutes.")
+                recommendations.append("Focus on maintaining a neutral spine position while seated.")
+                if good_posture_percentage is not None and good_posture_percentage < 50:
+                    recommendations.append("Consider using a posture reminder app or setting hourly check-in alarms.")
+                else:
+                    recommendations.append("Practice chin tucks and shoulder blade squeezes to strengthen postural muscles.")
+            else:
+                recommendations.append("Great job! Keep up the good posture.")
 
         return recommendations[:3]  # Return top 3

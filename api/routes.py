@@ -65,7 +65,11 @@ async def api_get_session(session_id: str):
     # Generate analysis
     try:
         common_issues = ReportGenerator.identify_common_issues(logs)
-        recommendations = ReportGenerator.get_recommendations(common_issues)
+        recommendations = ReportGenerator.get_recommendations(
+            common_issues,
+            good_posture_percentage=session.get('good_posture_percentage'),
+            average_score=session.get('average_score')
+        )
     except Exception:
         common_issues = []
         recommendations = []
