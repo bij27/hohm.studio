@@ -509,10 +509,81 @@
             margin-right: 6px;
         }
 
+        /* Tablet */
         @media (max-width: 900px) {
             .dashboard-grid { grid-template-columns: 1fr; }
             main { padding: 20px; }
             header { padding: 15px 20px; }
+            .hero-banner h1 { font-size: 1.6rem; }
+            .hero-banner p { font-size: 0.9rem; }
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            header { padding: 12px 16px; }
+            .logo-img { height: 32px; }
+            nav { gap: 15px; }
+            nav a { font-size: 0.8rem; }
+            #global-session-timer { font-size: 0.85rem; }
+
+            main { padding: 16px; }
+
+            .hero-banner { margin-bottom: 24px; }
+            .hero-banner h1 { font-size: 1.3rem; letter-spacing: 0; }
+            .hero-banner p { font-size: 0.85rem; }
+
+            .dashboard-grid { gap: 16px; }
+            .video-wrapper {
+                aspect-ratio: 4/3;
+                border-width: 4px;
+            }
+
+            .card { padding: 16px; }
+
+            .btn {
+                padding: 14px 24px;
+                font-size: 0.95rem;
+            }
+
+            .guide-steps { padding: 16px; margin-top: 16px; }
+            .guide-steps h4 { font-size: 0.8rem; }
+            .guide-steps li { font-size: 0.8rem; padding-left: 24px; }
+            .guide-steps li::before { width: 18px; height: 18px; font-size: 0.65rem; }
+
+            #session-stats h3 { font-size: 0.9rem; }
+            .scale-labels { font-size: 0.7rem; }
+            #balance-status { font-size: 0.9rem; }
+            .time-stats { gap: 12px; margin-top: 16px; padding-top: 12px; }
+            .time-stat label { font-size: 0.65rem; }
+            .time-stat span { font-size: 1rem; }
+
+            #settings-panel h3 { font-size: 0.9rem; }
+            .setting-row span { font-size: 0.85rem; }
+            .setting-select { font-size: 0.8rem; padding: 5px 8px; }
+
+            footer { padding: 24px 16px; }
+        }
+
+        /* Small phones */
+        @media (max-width: 380px) {
+            header { flex-wrap: wrap; gap: 8px; }
+            nav { width: 100%; justify-content: space-between; }
+            .hero-banner h1 { font-size: 1.1rem; }
+            .btn { padding: 12px 20px; font-size: 0.9rem; }
+        }
+
+        /* Consent modal mobile */
+        @media (max-width: 600px) {
+            .consent-modal { padding: 24px 20px; width: 95%; }
+            .consent-logo { height: 48px; }
+            .consent-modal h1 { font-size: 1.4rem; }
+            .consent-tagline { font-size: 0.9rem; }
+            .consent-body h2 { font-size: 0.95rem; }
+            .consent-body li { font-size: 0.9rem; padding: 5px 0; }
+            .consent-privacy { padding: 12px; }
+            .consent-privacy p { font-size: 0.85rem; }
+            .consent-privacy a { font-size: 0.85rem; }
+            .consent-actions { gap: 10px; margin-top: 20px; }
         }
 
         /* Consent Modal */
