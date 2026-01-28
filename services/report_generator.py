@@ -2,6 +2,7 @@ from typing import List, Dict
 import json
 from models.schemas import PostureIssueType
 
+
 class ReportGenerator:
     """
     Generates summary statistics and recommendations based on session logs.
@@ -10,14 +11,40 @@ class ReportGenerator:
     def identify_common_issues(logs: List[Dict]) -> List[PostureIssueType]:
         issue_counts = {}
         for log in logs:
-            issues = json.loads(log['issues'])
-            for issue in issues:
-                issue_type = issue['type']
-                issue_counts[issue_type] = issue_counts.get(issue_type, 0) + 1
-        
+            try:
+                # Handle both string (JSON) and already-parsed list
+                issues = log.get('issues', [])
+                if isinstance(issues, str):
+                    try:
+                        issues = json.loads(issues)
+                    except json.JSONDecodeError:
+                        issues = []
+
+                if not isinstance(issues, list):
+                    continue
+
+                for issue in issues:
+                    if not isinstance(issue, dict):
+                        continue
+                    issue_type = issue.get('type', '')
+                    if issue_type:
+                        issue_counts[issue_type] = issue_counts.get(issue_type, 0) + 1
+            except Exception:
+                # Skip malformed logs
+                continue
+
         # Sort by frequency
         sorted_issues = sorted(issue_counts.items(), key=lambda x: x[1], reverse=True)
-        return [PostureIssueType(x[0]) for x in sorted_issues]
+
+        # Safely convert to PostureIssueType
+        result = []
+        for issue_type, _ in sorted_issues:
+            try:
+                result.append(PostureIssueType(issue_type))
+            except ValueError:
+                # Invalid issue type, skip
+                continue
+        return result
 
     @staticmethod
     def get_recommendations(common_issues: List[PostureIssueType]) -> List[str]:
@@ -33,8 +60,8 @@ class ReportGenerator:
                 recommendations.append("Avoid cradling a phone between your shoulder and ear.")
             elif issue == PostureIssueType.SCREEN_DISTANCE:
                 recommendations.append("Increase font size or move your monitor closer so you don't lean in to read.")
-        
+
         if not recommendations:
             recommendations.append("Great job! Keep up the good posture.")
-            
-        return recommendations[:3] # Return top 3
+
+        return recommendations[:3]  # Return top 3

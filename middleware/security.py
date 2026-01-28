@@ -1,5 +1,5 @@
 """
-Security middleware for hohm.ai
+Security middleware for hohm.studio
 
 Implements:
 - Content Security Policy (CSP) headers
@@ -227,8 +227,8 @@ class SecurityMiddleware(BaseHTTPMiddleware):
     # Paths that bypass rate limiting (for static assets)
     BYPASS_PATHS = {"/static/", "/health"}
 
-    # Maximum request body size (10MB - allows for screenshot uploads)
-    MAX_BODY_SIZE = 10 * 1024 * 1024
+    # Maximum request body size (1MB - sufficient for JSON requests)
+    MAX_BODY_SIZE = 1 * 1024 * 1024
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         path = request.url.path

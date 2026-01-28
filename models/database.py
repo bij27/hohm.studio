@@ -1,7 +1,11 @@
 import asyncpg
 import config as cfg
 import json
+import math
 from typing import Optional, Any
+
+# Constants
+MAX_LOGS_PER_SESSION = 10000
 
 # Global connection pool
 _pool: Optional[asyncpg.Pool] = None
@@ -51,9 +55,12 @@ def _validate_session_data(session_data: dict) -> tuple[bool, str]:
 
 
 def _sanitize_number(value: Any, min_val: float, max_val: float, default: float) -> float:
-    """Clamp a number to valid range, return default if invalid."""
+    """Clamp a number to valid range, return default if invalid or NaN/Infinity."""
     try:
         num = float(value)
+        # Check for NaN or Infinity
+        if math.isnan(num) or math.isinf(num):
+            return default
         return max(min_val, min(max_val, num))
     except (TypeError, ValueError):
         return default
@@ -162,7 +169,7 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
         duration = _sanitize_number(session_data['duration_minutes'], 0, 1440, 0)
         percentage = _sanitize_number(session_data['good_posture_percentage'], 0, 100, 0)
         score = _sanitize_number(session_data['average_score'], 0, 10, 0)
-        logs = int(_sanitize_number(session_data['total_logs'], 0, 1000000, 0))
+        logs = int(_sanitize_number(session_data['total_logs'], 0, MAX_LOGS_PER_SESSION, 0))
 
         pool = await get_pool()
         async with pool.acquire() as conn:

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import asyncio
 import json
-import os
+import math
 import time
 from datetime import datetime
 from typing import Dict, Optional
@@ -11,6 +12,10 @@ from models.schemas import CalibrationProfile, PostureStatus
 from models.database import save_session, save_log
 
 router = APIRouter()
+
+# Constants
+MAX_LOGS_PER_SESSION = 10000  # Prevent storage abuse
+WEBSOCKET_TIMEOUT = 60.0  # Seconds to wait for message
 
 
 # === RATE LIMITER ===
@@ -50,6 +55,18 @@ def parse_landmarks(raw_landmarks: Dict) -> Dict[int, Dict]:
     return landmarks
 
 
+def validate_score(value) -> float:
+    """Validate and sanitize score value, handling NaN/Infinity."""
+    try:
+        score = float(value) if value is not None else 0.0
+        # Check for NaN or Infinity
+        if math.isnan(score) or math.isinf(score):
+            return 0.0
+        return max(0.0, min(10.0, score))
+    except (ValueError, TypeError):
+        return 0.0
+
+
 # === WEBSOCKET ENDPOINT ===
 
 @router.websocket("/ws")
@@ -63,17 +80,31 @@ async def websocket_endpoint(websocket: WebSocket):
     calibrator = Calibrator()
     session_manager = SessionManager()
     audio_enabled = True
-    rate_limiter = RateLimiter(max_messages=15, window_seconds=1.0)  # 15 msgs/sec max
+    rate_limiter = RateLimiter(max_messages=15, window_seconds=1.0)
+    session_saved = False  # Flag to prevent double-save
 
     try:
         while True:
-            data = await websocket.receive_text()
+            # Add timeout to prevent blocking forever
+            try:
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=WEBSOCKET_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                # Send ping to keep connection alive
+                await websocket.send_json({"type": "ping"})
+                continue
 
             # Rate limiting - skip processing if too many messages
             if not rate_limiter.is_allowed():
                 continue
 
-            message = json.loads(data)
+            try:
+                message = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+
             action = message.get('action')
 
             if action == 'set_profile':
@@ -148,6 +179,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 metrics, score, issues = analyzer.analyze(landmarks)
+                score = validate_score(score)  # Sanitize score
                 status_str = analyzer.get_status_with_hysteresis(score)
                 status = PostureStatus.BAD if status_str == "bad" else PostureStatus.WARNING if status_str == "warning" else PostureStatus.GOOD
                 session_manager.update_stats(status, score)
@@ -177,19 +209,28 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif action == 'start_session':
                 session_id = session_manager.start()
+                session_saved = False  # Reset flag for new session
                 print(f"[SESSION] Started new session: {session_id}")
                 await websocket.send_json({"type": "session_started", "data": {"session_id": session_id}})
 
             elif action == 'stop_session':
+                if session_saved:
+                    continue  # Already saved, skip
+
                 summary = session_manager.stop()
                 summary['end_time'] = datetime.now()
-                summary['total_logs'] = session_manager.log_count
+                summary['total_logs'] = min(session_manager.log_count, MAX_LOGS_PER_SESSION)
                 summary['start_time'] = session_manager.start_time
 
-                # Save with validation - returns (success, error_message)
+                # Save with validation
                 success, error = await save_session(summary)
+                session_saved = True  # Mark as saved to prevent double-save
+
                 if not success:
                     summary['save_error'] = error
+                    print(f"[SESSION] Save failed: {error}")
+                else:
+                    print(f"[SESSION] Saved: {summary.get('session_id')}")
 
                 await websocket.send_json({"type": "session_stopped", "data": summary})
 
@@ -199,21 +240,25 @@ async def websocket_endpoint(websocket: WebSocket):
             elif action == 'update_session_stats':
                 # Receive accurate timing from frontend
                 if session_manager.is_active:
-                    session_manager.good_time_sec = message.get('good_time_sec', 0)
-                    session_manager.bad_time_sec = message.get('bad_time_sec', 0)
-                    print(f"[SESSION] Updated stats from frontend - Good: {session_manager.good_time_sec:.1f}s, Bad: {session_manager.bad_time_sec:.1f}s")
+                    good_time = message.get('good_time_sec', 0)
+                    bad_time = message.get('bad_time_sec', 0)
+                    # Validate timing values
+                    if isinstance(good_time, (int, float)) and not math.isnan(good_time):
+                        session_manager.good_time_sec = max(0, good_time)
+                    if isinstance(bad_time, (int, float)) and not math.isnan(bad_time):
+                        session_manager.bad_time_sec = max(0, bad_time)
 
             elif action == 'log_posture':
                 # Log posture data (without screenshots)
                 if not session_manager.is_active:
                     continue
 
+                # Enforce max logs limit
+                if session_manager.log_count >= MAX_LOGS_PER_SESSION:
+                    continue
+
                 # Validate and sanitize inputs
-                try:
-                    score = float(message.get('score', 0))
-                    score = max(0.0, min(10.0, score))  # Clamp to valid range
-                except (ValueError, TypeError):
-                    score = 0.0
+                score = validate_score(message.get('score', 0))
 
                 status = message.get('status', 'bad')
                 if status not in ('good', 'warning', 'bad'):
@@ -233,7 +278,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             }
                             issues.append(clean_issue)
 
-                # Save log entry (no screenshot)
+                # Save log entry
                 log_data = {
                     "session_id": session_manager.session_id,
                     "timestamp": datetime.now(),
@@ -245,31 +290,31 @@ async def websocket_endpoint(websocket: WebSocket):
                 success, error = await save_log(log_data)
                 if success:
                     session_manager.log_count += 1
-                    print(f"[LOG] Saved posture log, score={score}")
                 else:
                     print(f"[LOG] Failed to save: {error}")
+
+            elif action == 'pong':
+                # Response to our ping, connection is alive
+                pass
 
     except WebSocketDisconnect:
         print("[WS] Client disconnected normally")
     except Exception as e:
         print(f"[WS] Connection error: {e}")
 
-    # Auto-save session if it was active when connection closed (runs after try/except)
-    if session_manager.is_active:
+    # Auto-save session if it was active and not already saved
+    if session_manager.is_active and not session_saved:
         try:
             print(f"[SESSION] Auto-saving active session: {session_manager.session_id}")
             summary = session_manager.stop()
             summary['end_time'] = datetime.now()
-            summary['total_logs'] = session_manager.log_count
+            summary['total_logs'] = min(session_manager.log_count, MAX_LOGS_PER_SESSION)
             summary['start_time'] = session_manager.start_time
 
-            # Save session - await properly
             success, error = await save_session(summary)
             if success:
-                print(f"[SESSION] Auto-saved successfully: {summary.get('session_id', 'unknown')} - Grade: {summary.get('average_score')}, Good: {summary.get('good_posture_percentage')}%")
+                print(f"[SESSION] Auto-saved: {summary.get('session_id')}")
             else:
                 print(f"[SESSION] Auto-save failed: {error}")
         except Exception as e:
             print(f"[SESSION] Failed to auto-save: {e}")
-    else:
-        print("[WS] No active session to save")

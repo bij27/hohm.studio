@@ -17,7 +17,8 @@ class SessionManager:
         self.good_time_sec: float = 0
         self.bad_time_sec: float = 0
         self.total_score: float = 0
-        self.log_count: int = 0
+        self.score_count: int = 0  # Counts score samples for averaging
+        self.log_count: int = 0    # Counts actual database log entries
         self.is_active: bool = False
         self.last_update_time: Optional[datetime] = None
 
@@ -28,6 +29,7 @@ class SessionManager:
         self.good_time_sec = 0
         self.bad_time_sec = 0
         self.total_score = 0
+        self.score_count = 0
         self.log_count = 0
         self.is_active = True
         return self.session_id
@@ -38,7 +40,7 @@ class SessionManager:
             return
 
         self.total_score += score
-        self.log_count += 1
+        self.score_count += 1
 
     def stop(self):
         self.is_active = False
@@ -50,7 +52,7 @@ class SessionManager:
         good_percentage = (self.good_time_sec / total_tracked * 100) if total_tracked > 0 else 100
 
         # Calculate grade: weighted by good posture percentage and average score
-        avg_score = self.total_score / self.log_count if self.log_count > 0 else 10
+        avg_score = self.total_score / self.score_count if self.score_count > 0 else 10
         # Grade = 60% based on good posture %, 40% based on average score
         grade = (good_percentage / 100 * 10) * 0.6 + avg_score * 0.4
 

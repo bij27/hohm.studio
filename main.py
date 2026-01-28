@@ -1,7 +1,8 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
@@ -68,11 +69,10 @@ async def robots():
 async def ads():
     return FileResponse("static/ads.txt", media_type="text/plain")
 
+templates = Jinja2Templates(directory="templates")
+
 @app.get("/privacy")
-async def privacy_page(request):
-    from fastapi import Request
-    from fastapi.templating import Jinja2Templates
-    templates = Jinja2Templates(directory="templates")
+async def privacy_page(request: Request):
     return templates.TemplateResponse("privacy.html", {"request": request})
 
 # Mount static files
