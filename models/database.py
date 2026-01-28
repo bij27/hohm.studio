@@ -71,12 +71,22 @@ async def get_pool() -> asyncpg.Pool:
     """Get or create the connection pool."""
     global _pool
     if _pool is None:
+        import ssl
+        # Create SSL context for Supabase
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE  # Supabase uses self-signed certs via pooler
+
+        # Supabase pooler requires statement_cache_size=0 to disable prepared statements
         _pool = await asyncpg.create_pool(
             cfg.DATABASE_URL,
             min_size=1,
             max_size=10,
-            command_timeout=30
+            command_timeout=30,
+            statement_cache_size=0,  # Required for Supabase transaction pooler
+            ssl=ssl_context
         )
+        print("[DB] Connection pool created successfully")
     return _pool
 
 
