@@ -25,8 +25,13 @@ def validate_session_id(session_id: str) -> bool:
 # === Page Routes ===
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
+async def landing_page(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@router.get("/app", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse("app.html", {"request": request})
 
 
 @router.get("/sessions", response_class=HTMLResponse)
