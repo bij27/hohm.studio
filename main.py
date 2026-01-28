@@ -75,6 +75,14 @@ templates = Jinja2Templates(directory="templates")
 async def privacy_page(request: Request):
     return templates.TemplateResponse("privacy.html", {"request": request})
 
+@app.get("/yoga")
+async def yoga_page(request: Request):
+    return templates.TemplateResponse("yoga.html", {"request": request})
+
+@app.get("/yoga/session")
+async def yoga_session_page(request: Request):
+    return templates.TemplateResponse("yoga_session.html", {"request": request})
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

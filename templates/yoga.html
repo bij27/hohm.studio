@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-8332216835063057">
+    <title>hohm.studio | Yoga Sessions</title>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    <meta name="description" content="AI-guided yoga sessions with real-time pose correction">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
+    <style>
+        :root {
+            --color-bg: #fcfaf7;
+            --color-surface: #ffffff;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #2c3333;
+            --color-text-secondary: #6b7575;
+            --color-good: #7c9a92;
+            --color-bad: #c97b7b;
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .logo-img { height: 40px; width: auto; transition: transform 0.3s ease; }
+        .logo-img:hover { transform: scale(1.05); }
+        nav { display: flex; gap: 20px; align-items: center; }
+        nav a {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        nav a:hover { color: var(--color-primary); }
+        nav a.active { color: var(--color-primary); font-weight: 500; }
+
+        main { padding: 40px; max-width: 1200px; margin: 0 auto; }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            margin-bottom: 8px;
+        }
+        .page-header p { color: var(--color-text-secondary); }
+
+        /* Session Config Card */
+        .config-card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            margin-bottom: 40px;
+        }
+        .config-card h2 {
+            font-weight: 400;
+            margin-bottom: 20px;
+            color: var(--color-text);
+        }
+
+        .config-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .config-option {
+            flex: 1;
+            min-width: 200px;
+        }
+        .config-option label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .duration-buttons, .focus-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .duration-btn, .focus-btn {
+            padding: 12px 20px;
+            border: 2px solid var(--color-primary);
+            background: transparent;
+            color: var(--color-primary);
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        .duration-btn:hover, .focus-btn:hover {
+            background: rgba(124, 154, 146, 0.1);
+        }
+        .duration-btn.active, .focus-btn.active {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 12px;
+            padding: 16px 32px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            font-weight: 500;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(124, 154, 146, 0.3);
+        }
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .start-session {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        /* Pose Catalog */
+        .catalog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .catalog-header h2 {
+            font-weight: 400;
+        }
+        .pose-count {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .pose-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .pose-card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        .pose-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(124, 154, 146, 0.15);
+        }
+        .pose-card.selected {
+            border-color: var(--color-primary);
+            background: rgba(124, 154, 146, 0.05);
+        }
+
+        .pose-card h3 {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .pose-card .sanskrit {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            font-style: italic;
+            margin-bottom: 12px;
+        }
+
+        .pose-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .pose-tag {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .tag-category {
+            background: rgba(124, 154, 146, 0.15);
+            color: var(--color-primary);
+        }
+        .tag-difficulty {
+            background: rgba(212, 165, 116, 0.15);
+            color: var(--color-accent);
+        }
+        .tag-beginner { background: rgba(124, 154, 146, 0.15); color: var(--color-good); }
+        .tag-intermediate { background: rgba(212, 165, 116, 0.15); color: var(--color-accent); }
+        .tag-advanced { background: rgba(201, 123, 123, 0.15); color: var(--color-bad); }
+
+        .pose-duration {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        .selected-count {
+            background: var(--color-primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        footer {
+            padding: 40px;
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 0.8rem;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        footer a { color: var(--color-primary); text-decoration: none; font-weight: 500; }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            header { padding: 12px 16px; }
+            .logo-img { height: 32px; }
+            nav { gap: 12px; }
+            nav a { font-size: 0.8rem; }
+            main { padding: 16px; }
+            .page-header h1 { font-size: 1.5rem; }
+            .config-card { padding: 20px; }
+            .pose-grid { grid-template-columns: 1fr; }
+            footer { padding: 24px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <nav>
+            <a href="/">Posture</a>
+            <a href="/yoga" class="active">Yoga</a>
+            <a href="/sessions">History</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="page-header">
+            <h1>Guided Yoga Sessions</h1>
+            <p>AI-powered pose guidance with real-time feedback</p>
+        </div>
+
+        <div class="config-card">
+            <h2>Configure Your Session</h2>
+
+            <div class="config-row">
+                <div class="config-option">
+                    <label>Session Duration</label>
+                    <div class="duration-buttons">
+                        <button class="duration-btn" data-duration="15">15 min</button>
+                        <button class="duration-btn active" data-duration="30">30 min</button>
+                        <button class="duration-btn" data-duration="60">1 hour</button>
+                    </div>
+                </div>
+
+                <div class="config-option">
+                    <label>Focus Area</label>
+                    <div class="focus-buttons">
+                        <button class="focus-btn active" data-focus="all">All</button>
+                        <button class="focus-btn" data-focus="flexibility">Flexibility</button>
+                        <button class="focus-btn" data-focus="strength">Strength</button>
+                        <button class="focus-btn" data-focus="balance">Balance</button>
+                        <button class="focus-btn" data-focus="relaxation">Relaxation</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="start-session">
+                <button id="start-session-btn" class="btn btn-primary">
+                    Start AI-Generated Session
+                </button>
+                <p style="margin-top: 12px; font-size: 0.85rem; color: var(--color-text-secondary);">
+                    Or select specific poses below for a custom session
+                </p>
+            </div>
+        </div>
+
+        <div class="catalog-header">
+            <h2>Pose Catalog</h2>
+            <div>
+                <span class="pose-count" id="pose-count">8 poses available</span>
+                <span class="selected-count" id="selected-count" style="display: none; margin-left: 10px;">0 selected</span>
+            </div>
+        </div>
+
+        <div class="pose-grid" id="pose-grid">
+            <!-- Poses loaded dynamically -->
+        </div>
+
+        <div class="start-session" id="custom-session-btn" style="display: none; margin-top: 30px;">
+            <button class="btn btn-primary" onclick="startCustomSession()">
+                Start Custom Session
+            </button>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy">Privacy Policy</a></p>
+    </footer>
+
+    <script>
+        let poses = [];
+        let selectedPoses = [];
+        let sessionDuration = 30;
+        let sessionFocus = 'all';
+
+        // Load poses
+        async function loadPoses() {
+            const response = await fetch('/static/data/yoga/poses.json');
+            const data = await response.json();
+            poses = data.poses;
+            renderPoses();
+        }
+
+        function renderPoses() {
+            const grid = document.getElementById('pose-grid');
+            const filteredPoses = sessionFocus === 'all'
+                ? poses
+                : poses.filter(p => p.focus.includes(sessionFocus));
+
+            grid.innerHTML = filteredPoses.map(pose => `
+                <div class="pose-card ${selectedPoses.includes(pose.id) ? 'selected' : ''}"
+                     data-id="${pose.id}"
+                     onclick="togglePose('${pose.id}')">
+                    <h3>${pose.name}</h3>
+                    <div class="sanskrit">${pose.sanskrit}</div>
+                    <div class="pose-tags">
+                        <span class="pose-tag tag-category">${pose.category}</span>
+                        <span class="pose-tag tag-${pose.difficulty}">${pose.difficulty}</span>
+                    </div>
+                    <div class="pose-duration">${pose.duration_seconds[0]}-${pose.duration_seconds[1]} seconds</div>
+                </div>
+            `).join('');
+
+            document.getElementById('pose-count').textContent = `${filteredPoses.length} poses available`;
+        }
+
+        function togglePose(id) {
+            const index = selectedPoses.indexOf(id);
+            if (index > -1) {
+                selectedPoses.splice(index, 1);
+            } else {
+                selectedPoses.push(id);
+            }
+            updateSelectedUI();
+            renderPoses();
+        }
+
+        function updateSelectedUI() {
+            const countEl = document.getElementById('selected-count');
+            const customBtn = document.getElementById('custom-session-btn');
+
+            if (selectedPoses.length > 0) {
+                countEl.style.display = 'inline';
+                countEl.textContent = `${selectedPoses.length} selected`;
+                customBtn.style.display = 'block';
+            } else {
+                countEl.style.display = 'none';
+                customBtn.style.display = 'none';
+            }
+        }
+
+        // Duration buttons
+        document.querySelectorAll('.duration-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sessionDuration = parseInt(btn.dataset.duration);
+            });
+        });
+
+        // Focus buttons
+        document.querySelectorAll('.focus-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.focus-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sessionFocus = btn.dataset.focus;
+                renderPoses();
+            });
+        });
+
+        // Start AI session
+        document.getElementById('start-session-btn').addEventListener('click', () => {
+            const params = new URLSearchParams({
+                duration: sessionDuration,
+                focus: sessionFocus,
+                mode: 'ai'
+            });
+            window.location.href = `/yoga/session?${params}`;
+        });
+
+        // Start custom session
+        function startCustomSession() {
+            const params = new URLSearchParams({
+                poses: selectedPoses.join(','),
+                mode: 'custom'
+            });
+            window.location.href = `/yoga/session?${params}`;
+        }
+
+        loadPoses();
+    </script>
+</body>
+</html>
