@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>hohm.studio | Calibrate</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        .guide-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 4px dashed rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .guide-circle {
+            width: 200px;
+            height: 200px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            margin-top: -100px;
+        }
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 8px;
+            background: var(--color-good);
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .logo-img {
+            height: 40px;
+            width: auto;
+            vertical-align: middle;
+            transition: transform 0.3s ease;
+        }
+
+        .logo-img:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <nav>
+            <a href="/monitor" style="color: var(--color-text-secondary); text-decoration: none; font-size: 0.9rem;">Skip to Monitor</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="card" style="margin-bottom: 20px;">
+            <h2>Calibrate Your Ideal Posture</h2>
+            <p>Sit in your ideal "good" posture. Align your head with the circle and keep your back straight.</p>
+        </div>
+
+        <div class="video-container" id="calibration-container" style="border: 8px solid white; box-shadow: var(--shadow);">
+            <video id="webcam" autoplay playsinline class="mirrored-video"></video>
+            <!-- Overlay canvas for landmarks -->
+            <canvas id="landmark-overlay"></canvas>
+            
+            <div class="guide-overlay">
+                <div class="guide-circle" style="border-color: var(--color-primary);"></div>
+            </div>
+            <div id="countdown" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5rem; color: var(--color-primary); font-weight: 800; text-shadow: 0 4px 10px rgba(255,255,255,0.5);"></div>
+            <div class="progress-bar" id="progress-bar" style="background: var(--color-primary);"></div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <button id="start-cal-btn" class="btn btn-primary" disabled>Connecting...</button>
+            <p id="status-msg" style="margin-top: 12px; color: var(--color-text-secondary);">Waiting for connection...</p>
+        </div>
+    </main>
+
+    <footer style="padding: 40px; text-align: center; color: var(--color-text-secondary); font-size: 0.8rem; border-top: 1px solid rgba(124, 154, 146, 0.1);">
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a></p>
+    </footer>
+
+    <script type="module" src="/static/js/calibration.js"></script>
+</body>
+</html>

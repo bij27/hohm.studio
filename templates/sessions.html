@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>hohm.studio | Sessions</title>
+    <meta name="description" content="Review your posture sessions and track your progress with hohm.studio">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
+    <style>
+        :root {
+            --color-bg: #fcfaf7;
+            --color-surface: #ffffff;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #2c3333;
+            --color-text-secondary: #6b7575;
+            --color-good: #7c9a92;
+            --color-bad: #c97b7b;
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            min-height: 100vh;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .logo-img {
+            height: 40px;
+            width: auto;
+            vertical-align: middle;
+            transition: transform 0.3s ease;
+        }
+
+        .logo-img:hover {
+            transform: scale(1.05);
+        }
+        .btn {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+        .btn-primary:hover { background: var(--color-primary-light); }
+        .btn-danger {
+            background: transparent;
+            color: var(--color-bad);
+            border: 1px solid var(--color-bad);
+        }
+        .btn-danger:hover { background: rgba(201, 123, 123, 0.1); }
+        main { padding: 40px; max-width: 900px; margin: 0 auto; }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        h1 { font-weight: 300; font-size: 1.8rem; }
+        .session-list { display: flex; flex-direction: column; gap: 12px; }
+        .session-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s;
+        }
+        .session-item:hover {
+            transform: translateX(5px);
+            background: #2a2f38;
+        }
+        .session-date { font-weight: 500; margin-bottom: 4px; }
+        .session-meta {
+            display: flex;
+            gap: 20px;
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+        }
+        .badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .badge-good { background: rgba(124, 154, 146, 0.2); color: var(--color-good); }
+        .badge-bad { background: rgba(201, 123, 123, 0.2); color: var(--color-bad); }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--color-text-secondary);
+        }
+        .empty-state p { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <a href="/" class="btn btn-primary">Start New Session</a>
+    </header>
+
+    <main>
+        <div class="page-header">
+            <h1>Your Sessions</h1>
+            <button onclick="deleteAllSessions()" class="btn btn-danger">Clear All</button>
+        </div>
+        <div class="session-list" id="session-list"></div>
+    </main>
+
+    <footer style="padding: 40px; text-align: center; color: var(--color-text-secondary); font-size: 0.8rem; border-top: 1px solid rgba(124, 154, 146, 0.1);">
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a></p>
+    </footer>
+
+    <script>
+        async function loadSessions() {
+            const response = await fetch('/api/sessions');
+            const sessions = await response.json();
+            const list = document.getElementById('session-list');
+
+            if (sessions.length === 0) {
+                list.innerHTML = '<div class="empty-state"><div style="font-size:2rem">🧘</div><p>No sessions yet. Start your first session to track your posture.</p></div>';
+                return;
+            }
+
+            list.innerHTML = sessions.map(s => `
+                <a href="/review/${s.id}" class="session-item">
+                    <div>
+                        <div class="session-date">${new Date(s.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                        <div class="session-meta">
+                            <span>${Math.round(s.duration_minutes)} min</span>
+                            <span>Score: ${Math.round(s.average_score)}/10</span>
+                        </div>
+                    </div>
+                    <div class="badge ${s.good_posture_percentage >= 70 ? 'badge-good' : 'badge-bad'}">
+                        ${Math.round(s.good_posture_percentage)}% good
+                    </div>
+                </a>
+            `).join('');
+        }
+
+        async function deleteAllSessions() {
+            if (confirm("Delete all session history? This cannot be undone.")) {
+                await fetch('/api/sessions/clear', { method: 'POST' });
+                loadSessions();
+            }
+        }
+
+        loadSessions();
+    </script>
+</body>
+</html>

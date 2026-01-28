@@ -1,0 +1,34 @@
+/* CSS - Ensuring Absolute Positioning Context */
+.video-wrapper {
+    position: relative !important;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    overflow: hidden;
+}
+
+#webcam, #landmark-overlay {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#webcam {
+    z-index: 10;
+}
+
+#landmark-overlay {
+    z-index: 100 !important;
+    pointer-events: none;
+    transform: scaleX(-1); /* Keep mirroring if needed */
+}
+
+#progress-container, #cal-guide, #countdown, #alert-box, #calibration-label {
+    position: absolute !important;
+    z-index: 200 !important;
+    pointer-events: none;
+}
+

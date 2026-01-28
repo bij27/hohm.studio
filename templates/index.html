@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>hohm.studio | AI Posture Correction</title>
+    <meta name="description" content="Your ohm at home. AI-powered posture correction for a healthier, more zen lifestyle.">
+    <meta name="keywords" content="hohm, posture correction, posture tracking, ergonomics, wellness, health, mindfulness, desk posture, back health, zen">
+    <meta name="author" content="hohm.studio">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://hohm.studio">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
+    <link rel="apple-touch-icon" href="/static/images/logo.png?v=4">
+    <link rel="manifest" href="/static/manifest.json">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://hohm.studio/">
+    <meta property="og:title" content="hohm.studio - Your ohm at home">
+    <meta property="og:description" content="Your ohm at home. AI-powered posture correction for a healthier, more zen lifestyle.">
+    <meta property="og:image" content="/static/images/banner.png">
+    <meta property="og:site_name" content="hohm.studio">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://hohm.studio/">
+    <meta property="twitter:title" content="hohm.studio - Your ohm at home">
+    <meta property="twitter:description" content="Your ohm at home. AI-powered posture correction for a healthier, more zen lifestyle.">
+    <meta property="twitter:image" content="/static/images/banner.png">
+
+    <!-- MediaPipe -->
+    <script type="module">
+        import { PoseLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+        window.tasksVision = { PoseLandmarker, FilesetResolver, DrawingUtils };
+    </script>
+
+    <style>
+        :root {
+            --color-bg: #fcfaf7; /* Warm off-white / Linen */
+            --color-surface: #ffffff;
+            --color-surface-hover: #f3f4f1;
+            --color-primary: #7c9a92; /* Sage Green */
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574; /* Warm Sand / Wood */
+            --color-text: #2c3333; /* Dark Slate Gray */
+            --color-text-secondary: #6b7575;
+            --color-good: #7c9a92;
+            --color-warning: #d4a574;
+            --color-bad: #c97b7b; /* Muted Coral */
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+
+        .logo-img {
+            height: 40px;
+            width: auto;
+            vertical-align: middle;
+            transition: transform 0.3s ease;
+        }
+
+        .logo-img:hover {
+            transform: scale(1.05);
+        }
+
+        nav {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        nav a {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+
+        nav a:hover { color: var(--color-primary-light); }
+
+        main { padding: 40px; }
+
+        .hero-banner {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .hero-banner h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            color: var(--color-text);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .hero-banner p {
+            color: var(--color-text-secondary);
+            font-size: 1rem;
+            font-weight: 300;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .video-wrapper {
+            position: relative;
+            background: #f0f2ef;
+            border-radius: var(--radius);
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            box-shadow: var(--shadow);
+            border: 8px solid white;
+        }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .dashboard-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 12px;
+            padding: 16px 32px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(124, 154, 146, 0.3);
+        }
+
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Guide Steps */
+        .guide-steps {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(124, 154, 146, 0.1);
+            border-radius: 12px;
+            border-left: 3px solid var(--color-primary);
+        }
+
+        .guide-steps h4 {
+            font-size: 0.85rem;
+            color: var(--color-primary);
+            margin-bottom: 15px;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        .guide-steps ol {
+            list-style: none;
+            counter-reset: step;
+        }
+
+        .guide-steps li {
+            counter-increment: step;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 12px;
+            padding-left: 28px;
+            position: relative;
+            line-height: 1.5;
+        }
+
+        .guide-steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            background: var(--color-primary);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* Session Stats */
+        #session-stats, #settings-panel {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.5s ease;
+            pointer-events: none;
+        }
+
+        #session-stats.active, #settings-panel.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .session-active .guide-steps { display: none; }
+
+        /* Balance Scale */
+        #balance-container { margin: 20px 0; }
+
+        .scale-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-bottom: 8px;
+            color: var(--color-text-secondary);
+        }
+
+        .scale-track {
+            position: relative;
+            height: 8px;
+            background: linear-gradient(to right, var(--color-bad), var(--color-warning), var(--color-good));
+            border-radius: 4px;
+            overflow: visible;
+        }
+
+        #balance-indicator {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 24px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: left 0.3s ease-out;
+            left: 75%;
+        }
+
+        #balance-status {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 1rem;
+            font-weight: 400;
+            color: var(--color-good);
+        }
+
+        .time-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+
+        .time-stat {
+            flex: 1;
+            text-align: center;
+        }
+
+        .time-stat label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .time-stat span {
+            display: block;
+            font-size: 1.1rem;
+            margin-top: 4px;
+        }
+
+        /* Video Overlays */
+        #webcam, #landmark-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+
+        .mirrored-video { transform: scaleX(-1); }
+        #landmark-overlay { transform: scaleX(-1); z-index: 10; }
+
+        .guide-circle {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px; height: 200px;
+            border: 2px dashed rgba(124, 154, 146, 0.4);
+            border-radius: 50%;
+            display: none;
+            z-index: 20;
+        }
+
+        #calibration-label {
+            position: absolute;
+            top: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(124, 154, 146, 0.9);
+            color: white;
+            padding: 10px 25px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            z-index: 60;
+            display: none;
+        }
+
+        #progress-container {
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 100%; height: 4px;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 50;
+        }
+
+        #progress-bar {
+            height: 100%;
+            background: var(--color-primary);
+            transition: width 0.3s ease;
+        }
+
+        .alert-message {
+            position: absolute;
+            bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(212, 165, 116, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            display: none;
+            z-index: 40;
+        }
+
+        #active-issues {
+            margin-top: 15px;
+            background: rgba(212, 165, 116, 0.15);
+            padding: 12px;
+            border-radius: 8px;
+            color: var(--color-warning);
+            display: none;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        /* Error & No-Person Overlays */
+        #error-overlay, #no-person-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(26, 29, 33, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            z-index: 100;
+            animation: fadeIn 0.3s ease;
+        }
+
+        #no-person-overlay { z-index: 90; background: rgba(252, 250, 247, 0.85); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        #error-icon { font-size: 3rem; margin-bottom: 15px; }
+        #error-title { font-size: 1.3rem; font-weight: 500; color: var(--color-warning); margin-bottom: 10px; }
+        #error-message { color: var(--color-text-secondary); margin-bottom: 20px; max-width: 280px; }
+
+        /* Settings */
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .setting-row span { color: var(--color-text-secondary); }
+
+        /* Toggle Switch */
+        input[type="checkbox"] {
+            width: 44px;
+            height: 24px;
+            appearance: none;
+            background: var(--color-surface-hover);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        input[type="checkbox"]:checked { background: var(--color-primary); }
+
+        input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            width: 18px; height: 18px;
+            background: white;
+            border-radius: 50%;
+            top: 3px; left: 3px;
+            transition: transform 0.3s;
+        }
+
+        input[type="checkbox"]:checked::before { transform: translateX(20px); }
+
+        /* PiP Button */
+        .btn-pip {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--color-primary);
+            background: transparent;
+            color: var(--color-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-pip:hover {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn-pip:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Settings Select */
+        .setting-select {
+            padding: 6px 10px;
+            border: 1px solid var(--color-primary);
+            border-radius: 6px;
+            background: var(--color-surface);
+            color: var(--color-text);
+            font-size: 0.85rem;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .setting-select:focus {
+            border-color: var(--color-primary-light);
+        }
+
+        /* Loading State */
+        .btn-loading { position: relative; color: transparent !important; }
+        .btn-loading::after {
+            content: "";
+            position: absolute;
+            width: 20px; height: 20px;
+            top: 50%; left: 50%;
+            margin: -10px 0 0 -10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Connection Status */
+        #connection-status {
+            display: none;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        #connection-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            main { padding: 20px; }
+            header { padding: 15px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" style="text-decoration: none;">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <nav>
+            <span id="connection-status">
+                <span id="connection-dot"></span>
+                <span id="connection-text">Connected</span>
+            </span>
+            <span id="global-session-timer" style="font-weight: 500; color: var(--color-primary-light);">00:00:00</span>
+            <a href="/sessions">Sessions</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="hero-banner">
+            <h1>Your posture determines your attitude.</h1>
+            <p>Sit straight, be comfortable, get to work. We'll handle the rest.</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="video-wrapper" id="capture-zone">
+                <video id="webcam" autoplay playsinline class="mirrored-video"></video>
+                <canvas id="landmark-overlay"></canvas>
+                <div class="guide-circle" id="cal-guide"></div>
+                <div id="countdown"></div>
+                <div id="alert-box" class="alert-message">Adjust your posture</div>
+                <div id="progress-container"><div id="progress-bar"></div></div>
+                <div id="calibration-label">CALIBRATING</div>
+
+                <div id="error-overlay">
+                    <div id="error-icon">🙏</div>
+                    <div id="error-title">Error</div>
+                    <div id="error-message">Something went wrong.</div>
+                    <button id="error-retry-btn" class="btn btn-primary">Try Again</button>
+                </div>
+
+                <div id="no-person-overlay">
+                    <div style="font-size: 2.5rem; margin-bottom: 12px;">🧘</div>
+                    <div style="font-size: 1.1rem; color: var(--color-warning); font-weight: 500;">No one detected</div>
+                    <div style="color: var(--color-text-secondary); margin-top: 6px; font-size: 0.9rem;">Please stay in frame</div>
+                </div>
+            </div>
+
+            <div class="dashboard-sidebar">
+                <div class="card">
+                    <button id="session-btn" class="btn btn-primary" style="width: 100%;">Start Session</button>
+
+                    <div class="guide-steps" id="guide-steps">
+                        <h4>HOW IT WORKS</h4>
+                        <ol>
+                            <li>Get your work station ready. Sit in a good posture and hit "Start Session".</li>
+                            <li>Sit still while we calibrate your position.</li>
+                            <li>Once calibrated, click the PiP button to float the video, then minimize and continue working.</li>
+                            <li>When you're done, view your session report for helpful feedback.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div id="session-stats" class="card">
+                    <h3 style="font-weight: 400; margin-bottom: 15px; color: var(--color-text-secondary);">Posture Balance</h3>
+
+                    <div id="balance-container">
+                        <div class="scale-labels">
+                            <span>Needs work</span>
+                            <span>Balanced</span>
+                            <span>Great</span>
+                        </div>
+                        <div class="scale-track">
+                            <div id="balance-indicator"></div>
+                        </div>
+                        <div id="balance-status">Looking good</div>
+                    </div>
+
+                    <div class="time-stats">
+                        <div class="time-stat">
+                            <label style="color: var(--color-good);">Good</label>
+                            <span id="good-timer">0:00</span>
+                        </div>
+                        <div class="time-stat">
+                            <label style="color: var(--color-bad);">Needs Work</label>
+                            <span id="bad-timer">0:00</span>
+                        </div>
+                    </div>
+
+                    <div id="active-issues"></div>
+                </div>
+
+                <div id="settings-panel" class="card">
+                    <h3 style="font-weight: 400; margin-bottom: 15px; color: var(--color-text-secondary);">Settings</h3>
+                    <div class="setting-row" style="margin-bottom: 12px;">
+                        <span>Sound alerts</span>
+                        <input type="checkbox" id="audio-toggle" checked>
+                    </div>
+                    <div class="setting-row" style="margin-bottom: 12px;">
+                        <span>Notifications</span>
+                        <input type="checkbox" id="notify-toggle" checked>
+                    </div>
+                    <div class="setting-row" style="margin-bottom: 12px;">
+                        <span>Alert frequency</span>
+                        <select id="alert-frequency" class="setting-select">
+                            <option value="always">Every time</option>
+                            <option value="moderate" selected>Moderate (30s)</option>
+                            <option value="relaxed">Relaxed (1 min)</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
+                        <span>Picture-in-Picture</span>
+                        <button id="pip-btn" class="btn-pip" title="Float video while you work">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                <rect x="12" y="9" width="8" height="6" rx="1" ry="1" fill="currentColor"></rect>
+                            </svg>
+                        </button>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--color-text-secondary); margin-top: 12px;">
+                        Click PiP before minimizing
+                    </p>
+                </div>
+            </div>
+        </div>
+    <footer style="padding: 40px; text-align: center; color: var(--color-text-secondary); font-size: 0.8rem; border-top: 1px solid rgba(124, 154, 146, 0.1);">
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a></p>
+    </footer>
+    </main>
+
+    <script src="/static/js/websocket-client.js?v=3"></script>
+    <script src="/static/js/video-renderer.js?v=13"></script>
+</body>
+</html>
