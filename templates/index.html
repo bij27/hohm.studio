@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>hohm.studio | AI Posture Correction</title>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
-    <meta name="description" content="Your ohm at home. AI-powered posture correction for a healthier, more zen lifestyle.">
+    <meta name="description" content="Your "ohm" at home. AI-powered posture correction for a healthier, more zen lifestyle.">
     <meta name="keywords" content="hohm, posture correction, posture tracking, ergonomics, wellness, health, mindfulness, desk posture, back health, zen">
     <meta name="author" content="hohm.studio">
     <meta name="robots" content="index, follow">
@@ -18,16 +18,16 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hohm.studio/">
-    <meta property="og:title" content="hohm.studio - Your ohm at home">
-    <meta property="og:description" content="Your ohm at home. AI-powered posture correction for a healthier, more zen lifestyle.">
+    <meta property="og:title" content="hohm.studio - Your "ohm" at home">
+    <meta property="og:description" content="Your "ohm" at home. AI-powered posture correction for a healthier, more zen lifestyle.">
     <meta property="og:image" content="/static/images/banner.png">
     <meta property="og:site_name" content="hohm.studio">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://hohm.studio/">
-    <meta property="twitter:title" content="hohm.studio - Your ohm at home">
-    <meta property="twitter:description" content="Your ohm at home. AI-powered posture correction for a healthier, more zen lifestyle.">
+    <meta property="twitter:title" content="hohm.studio - Your "ohm" at home">
+    <meta property="twitter:description" content="Your "ohm" at home. AI-powered posture correction for a healthier, more zen lifestyle.">
     <meta property="twitter:image" content="/static/images/banner.png">
 
     <!-- MediaPipe -->
@@ -514,9 +514,119 @@
             main { padding: 20px; }
             header { padding: 15px 20px; }
         }
+
+        /* Consent Modal */
+        #consent-overlay, #consent-declined {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: var(--color-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .consent-modal {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            max-width: 500px;
+            width: 90%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .consent-logo { height: 64px; width: auto; margin-bottom: 16px; }
+        .consent-modal h1 { color: var(--color-text); margin-bottom: 8px; }
+        .consent-tagline { color: var(--color-text-secondary); }
+
+        .consent-body { text-align: left; margin: 24px 0; }
+        .consent-body h2 { font-size: 1rem; font-weight: 500; margin-bottom: 12px; color: var(--color-text); }
+        .consent-body ul { list-style: disc; padding-left: 20px; }
+        .consent-body li { padding: 6px 0; color: var(--color-text); }
+
+        .consent-privacy {
+            background: rgba(124, 154, 146, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+        .consent-privacy p { font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 8px; }
+        .consent-privacy a { color: var(--color-primary); text-decoration: none; font-weight: 500; }
+        .consent-privacy a:hover { text-decoration: underline; }
+
+        .consent-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border, rgba(124, 154, 146, 0.3));
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--color-primary);
+            color: var(--color-text);
+        }
     </style>
 </head>
 <body>
+    <!-- Consent Modal -->
+    <div id="consent-overlay">
+        <div class="consent-modal">
+            <div class="consent-header">
+                <img src="/static/images/logo.png?v=4" alt="hohm.studio" class="consent-logo">
+                <h1>Welcome to hohm.studio</h1>
+                <p class="consent-tagline">Your "ohm" at home - AI-powered posture correction</p>
+            </div>
+
+            <div class="consent-body">
+                <h2>How it works</h2>
+                <ul>
+                    <li>Uses your webcam to analyze posture in real-time</li>
+                    <li>All processing happens locally in your browser</li>
+                    <li>Session data is stored securely for your review</li>
+                    <li>No video or images are ever uploaded</li>
+                </ul>
+
+                <div class="consent-privacy">
+                    <p>By using this app, you agree to our privacy practices.</p>
+                    <a href="/privacy" target="_blank">Read full Privacy Policy →</a>
+                </div>
+            </div>
+
+            <div class="consent-actions">
+                <button id="consent-agree" class="btn btn-primary">I Agree - Let's Start</button>
+                <button id="consent-decline" class="btn btn-secondary">Decline</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="consent-declined" style="display: none;">
+        <div class="consent-modal">
+            <div class="consent-header">
+                <img src="/static/images/logo.png?v=4" alt="hohm.studio" class="consent-logo">
+                <h1>Access Denied</h1>
+            </div>
+            <div class="consent-body">
+                <p style="text-align: center;">You must accept the privacy policy to use hohm.studio.</p>
+                <p style="text-align: center; margin-top: 12px;">We respect your decision. If you change your mind, refresh the page.</p>
+            </div>
+        </div>
+    </div>
+
     <header>
         <a href="/" style="text-decoration: none;">
             <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
@@ -643,6 +753,55 @@
     </footer>
     </main>
 
+    <script>
+        // Consent management
+        const CONSENT_KEY = 'hohm_consent';
+        const CONSENT_VERSION = 1;
+
+        function hasValidConsent() {
+            try {
+                const consent = JSON.parse(localStorage.getItem(CONSENT_KEY));
+                return consent && consent.accepted && consent.version === CONSENT_VERSION;
+            } catch {
+                return false;
+            }
+        }
+
+        function saveConsent(accepted) {
+            localStorage.setItem(CONSENT_KEY, JSON.stringify({
+                accepted: accepted,
+                version: CONSENT_VERSION,
+                timestamp: new Date().toISOString()
+            }));
+        }
+
+        function initConsentModal() {
+            const overlay = document.getElementById('consent-overlay');
+            const declined = document.getElementById('consent-declined');
+            const agreeBtn = document.getElementById('consent-agree');
+            const declineBtn = document.getElementById('consent-decline');
+
+            if (hasValidConsent()) {
+                overlay.style.display = 'none';
+                return;
+            }
+
+            overlay.style.display = 'flex';
+
+            agreeBtn.addEventListener('click', () => {
+                saveConsent(true);
+                overlay.style.display = 'none';
+            });
+
+            declineBtn.addEventListener('click', () => {
+                overlay.style.display = 'none';
+                declined.style.display = 'flex';
+            });
+        }
+
+        // Initialize consent modal on page load
+        window.addEventListener('load', initConsentModal);
+    </script>
     <script src="/static/js/websocket-client.js?v=3"></script>
     <script src="/static/js/video-renderer.js?v=13"></script>
 </body>
