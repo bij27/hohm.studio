@@ -10,12 +10,24 @@ from core.calibration import Calibrator
 from services.session_manager import SessionManager
 from models.schemas import CalibrationProfile, PostureStatus
 from models.database import save_session, save_log
+from middleware.auth import validate_token_format
+from middleware.security import validate_websocket_origin
+import config as cfg
 
 router = APIRouter()
 
 # Constants
 MAX_LOGS_PER_SESSION = 10000  # Prevent storage abuse
 WEBSOCKET_TIMEOUT = 60.0  # Seconds to wait for message
+MAX_MESSAGE_SIZE = 65536  # 64KB max message size
+MAX_LANDMARKS_SIZE = 33  # MediaPipe has 33 pose landmarks
+MAX_PROFILE_SIZE = 10000  # 10KB max profile JSON size
+
+
+def _debug_log(message: str):
+    """Print debug message only in development environment."""
+    if cfg.ENVIRONMENT == "development":
+        print(message)
 
 
 # === RATE LIMITER ===
@@ -44,14 +56,30 @@ class RateLimiter:
 
 def parse_landmarks(raw_landmarks: Dict) -> Dict[int, Dict]:
     """Convert string-keyed landmark dict to int-keyed dict expected by analyzer."""
+    # Validate input size to prevent DoS
+    if not isinstance(raw_landmarks, dict) or len(raw_landmarks) > MAX_LANDMARKS_SIZE * 2:
+        return {}
+
     landmarks = {}
-    for i in range(33):  # MediaPipe has 33 pose landmarks
+    for i in range(MAX_LANDMARKS_SIZE):  # MediaPipe has 33 pose landmarks
         key = str(i)
         if key in raw_landmarks:
             lm = raw_landmarks[key]
-            # Basic validation
+            # Validate landmark structure and values
             if isinstance(lm, dict) and 'x' in lm and 'y' in lm:
-                landmarks[i] = lm
+                try:
+                    x = float(lm['x'])
+                    y = float(lm['y'])
+                    # Coordinates should be normalized 0-1 or reasonable pixel values
+                    if -10 <= x <= 10 and -10 <= y <= 10:
+                        landmarks[i] = {'x': x, 'y': y}
+                        # Include optional z and visibility if present
+                        if 'z' in lm:
+                            landmarks[i]['z'] = float(lm['z'])
+                        if 'visibility' in lm:
+                            landmarks[i]['visibility'] = float(lm['visibility'])
+                except (ValueError, TypeError):
+                    continue
     return landmarks
 
 
@@ -67,11 +95,69 @@ def validate_score(value) -> float:
         return 0.0
 
 
+# === CONNECTION LIMITER ===
+
+class ConnectionLimiter:
+    """Limits concurrent WebSocket connections per IP to prevent resource exhaustion."""
+
+    def __init__(self, max_per_ip: int = 5):
+        self.max_per_ip = max_per_ip
+        self.connections: Dict[str, int] = {}
+
+    def _get_client_ip(self, websocket: WebSocket) -> str:
+        """Extract client IP from WebSocket connection."""
+        # Check forwarded headers (from reverse proxy)
+        forwarded = websocket.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        real_ip = websocket.headers.get("x-real-ip")
+        if real_ip:
+            return real_ip.strip()
+        # Direct connection
+        if websocket.client:
+            return websocket.client.host
+        return "unknown"
+
+    def can_connect(self, websocket: WebSocket) -> bool:
+        """Check if a new connection is allowed for this IP."""
+        ip = self._get_client_ip(websocket)
+        current = self.connections.get(ip, 0)
+        return current < self.max_per_ip
+
+    def add_connection(self, websocket: WebSocket) -> str:
+        """Track a new connection. Returns the IP."""
+        ip = self._get_client_ip(websocket)
+        self.connections[ip] = self.connections.get(ip, 0) + 1
+        return ip
+
+    def remove_connection(self, ip: str):
+        """Remove a connection from tracking."""
+        if ip in self.connections:
+            self.connections[ip] -= 1
+            if self.connections[ip] <= 0:
+                del self.connections[ip]
+
+
+# Global connection limiter
+connection_limiter = ConnectionLimiter(max_per_ip=5)
+
+
 # === WEBSOCKET ENDPOINT ===
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    # Validate origin before accepting connection
+    if not validate_websocket_origin(websocket):
+        await websocket.close(code=4000, reason="Connection rejected")
+        return
+
+    # Check connection limit per IP
+    if not connection_limiter.can_connect(websocket):
+        await websocket.close(code=4000, reason="Connection rejected")
+        return
+
     await websocket.accept()
+    client_ip = connection_limiter.add_connection(websocket)
 
     # Profile is now stored client-side (localStorage)
     # We receive it from the client when they connect or after calibration
@@ -82,6 +168,7 @@ async def websocket_endpoint(websocket: WebSocket):
     audio_enabled = True
     rate_limiter = RateLimiter(max_messages=15, window_seconds=1.0)
     session_saved = False  # Flag to prevent double-save
+    device_token: Optional[str] = None  # Device token for session ownership
 
     try:
         while True:
@@ -96,6 +183,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "ping"})
                 continue
 
+            # Message size limit - prevent memory exhaustion attacks
+            if len(data) > MAX_MESSAGE_SIZE:
+                continue
+
             # Rate limiting - skip processing if too many messages
             if not rate_limiter.is_allowed():
                 continue
@@ -105,12 +196,39 @@ async def websocket_endpoint(websocket: WebSocket):
             except json.JSONDecodeError:
                 continue
 
+            # Validate action field
             action = message.get('action')
+            if not action or not isinstance(action, str) or len(action) > 50:
+                continue
 
-            if action == 'set_profile':
+            if action == 'set_device_token':
+                # Client sends their device token for session ownership
+                token = message.get('token')
+                if token and validate_token_format(token):
+                    device_token = token
+                    await websocket.send_json({
+                        "type": "device_token_set",
+                        "data": {"success": True}
+                    })
+                else:
+                    await websocket.send_json({
+                        "type": "device_token_set",
+                        "data": {"success": False, "error": "Invalid token format"}
+                    })
+
+            elif action == 'set_profile':
                 # Client sends their stored profile on connect
                 profile_data = message.get('profile')
                 if profile_data:
+                    # Validate profile size to prevent memory exhaustion
+                    profile_str = json.dumps(profile_data) if isinstance(profile_data, dict) else str(profile_data)
+                    if len(profile_str) > MAX_PROFILE_SIZE:
+                        await websocket.send_json({
+                            "type": "profile_loaded",
+                            "data": {"success": False, "error": "Profile data too large"}
+                        })
+                        continue
+
                     try:
                         profile = CalibrationProfile(**profile_data)
                         analyzer.profile = profile
@@ -121,7 +239,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     except Exception as e:
                         await websocket.send_json({
                             "type": "profile_loaded",
-                            "data": {"success": False, "error": str(e)}
+                            "data": {"success": False, "error": "Invalid profile data"}
                         })
 
             elif action == 'calibrate_landmarks':
@@ -164,9 +282,11 @@ async def websocket_endpoint(websocket: WebSocket):
                             }
                         })
                 except Exception as e:
+                    # Sanitize error message in production to avoid information leakage
+                    error_msg = str(e) if cfg.ENVIRONMENT == "development" else "Processing error"
                     await websocket.send_json({
                         "type": "calibration_warning",
-                        "data": {"message": f"Calibration error: {str(e)}"}
+                        "data": {"message": f"Calibration error: {error_msg}"}
                     })
 
             elif action == 'process_landmarks':
@@ -210,7 +330,7 @@ async def websocket_endpoint(websocket: WebSocket):
             elif action == 'start_session':
                 session_id = session_manager.start()
                 session_saved = False  # Reset flag for new session
-                print(f"[SESSION] Started new session: {session_id}")
+                _debug_log(f"[SESSION] Started: {session_id}")
                 await websocket.send_json({"type": "session_started", "data": {"session_id": session_id}})
 
             elif action == 'stop_session':
@@ -222,15 +342,15 @@ async def websocket_endpoint(websocket: WebSocket):
                 summary['total_logs'] = min(session_manager.log_count, MAX_LOGS_PER_SESSION)
                 summary['start_time'] = session_manager.start_time
 
-                # Save with validation
-                success, error = await save_session(summary)
+                # Save with validation and device token for ownership
+                success, error = await save_session(summary, device_token)
                 session_saved = True  # Mark as saved to prevent double-save
 
                 if not success:
                     summary['save_error'] = error
-                    print(f"[SESSION] Save failed: {error}")
+                    _debug_log(f"[SESSION] Save failed: {error}")
                 else:
-                    print(f"[SESSION] Saved: {summary.get('session_id')}")
+                    _debug_log(f"[SESSION] Saved: {summary.get('session_id')}")
 
                 await websocket.send_json({"type": "session_stopped", "data": summary})
 
@@ -291,30 +411,33 @@ async def websocket_endpoint(websocket: WebSocket):
                 if success:
                     session_manager.log_count += 1
                 else:
-                    print(f"[LOG] Failed to save: {error}")
+                    _debug_log(f"[LOG] Save failed: {error}")
 
             elif action == 'pong':
                 # Response to our ping, connection is alive
                 pass
 
     except WebSocketDisconnect:
-        print("[WS] Client disconnected normally")
+        _debug_log("[WS] Client disconnected")
     except Exception as e:
-        print(f"[WS] Connection error: {e}")
+        _debug_log(f"[WS] Connection error: {e}")
+    finally:
+        # Always release connection slot
+        connection_limiter.remove_connection(client_ip)
 
     # Auto-save session if it was active and not already saved
     if session_manager.is_active and not session_saved:
         try:
-            print(f"[SESSION] Auto-saving active session: {session_manager.session_id}")
+            _debug_log(f"[SESSION] Auto-saving: {session_manager.session_id}")
             summary = session_manager.stop()
             summary['end_time'] = datetime.now()
             summary['total_logs'] = min(session_manager.log_count, MAX_LOGS_PER_SESSION)
             summary['start_time'] = session_manager.start_time
 
-            success, error = await save_session(summary)
+            success, error = await save_session(summary, device_token)
             if success:
-                print(f"[SESSION] Auto-saved: {summary.get('session_id')}")
+                _debug_log(f"[SESSION] Auto-saved: {summary.get('session_id')}")
             else:
-                print(f"[SESSION] Auto-save failed: {error}")
+                _debug_log(f"[SESSION] Auto-save failed: {error}")
         except Exception as e:
-            print(f"[SESSION] Failed to auto-save: {e}")
+            _debug_log(f"[SESSION] Auto-save error: {e}")

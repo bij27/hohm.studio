@@ -10,6 +10,13 @@ import os
 import random
 from pathlib import Path
 from typing import List, Dict, Optional
+import config as cfg
+
+
+def _debug_log(message: str):
+    """Print debug message only in development environment."""
+    if cfg.ENVIRONMENT == "development":
+        print(message)
 
 
 # Voice configuration - Indian-British female voice
@@ -200,12 +207,7 @@ class YogaScriptGenerator:
             instructions = pose.get("instructions", [])
             phase = pose.get("phase", "main")
 
-            # Debug: Log what we're processing
-            print(f"[SCRIPT] Processing pose {i}: {pose_name}")
-            print(f"[SCRIPT]   instructions type: {type(instructions)}, len: {len(instructions) if isinstance(instructions, list) else 'N/A'}")
-            if isinstance(instructions, list):
-                for j, inst in enumerate(instructions):
-                    print(f"[SCRIPT]   [{j}]: {inst[:40] if inst else 'empty'}...")
+            _debug_log(f"[SCRIPT] Pose {i}: {pose_name} ({len(instructions) if isinstance(instructions, list) else 0} instructions)")
 
             # Cooldown transition
             if phase == "cooldown" and i > 0:
@@ -233,7 +235,6 @@ class YogaScriptGenerator:
 
             # Pose instructions - include ALL step-by-step instructions
             if instructions and len(instructions) > 0:
-                print(f"[SCRIPT]   Adding {len(instructions)} instructions to script")
                 # Add each instruction as a separate script item
                 for step_num, instruction in enumerate(instructions):
                     script.append({
@@ -243,7 +244,6 @@ class YogaScriptGenerator:
                         "pose_index": i,
                         "step": step_num
                     })
-                    print(f"[SCRIPT]   Added instruction {step_num}: {instruction[:40]}...")
             elif pose_id in cls.POSE_INSTRUCTIONS:
                 script.append({
                     "type": "pose_instruction",

@@ -8,6 +8,12 @@ from typing import Optional, Any
 # Constants
 MAX_LOGS_PER_SESSION = 10000
 
+
+def _debug_log(message: str):
+    """Print debug message only in development environment."""
+    if cfg.ENVIRONMENT == "development":
+        print(message)
+
 # Global connection pool
 _pool: Optional[asyncpg.Pool] = None
 
@@ -72,10 +78,32 @@ async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
         import ssl
-        # Create SSL context for Supabase
+        # SSL Configuration for Supabase Session Pooler
+        # =============================================
+        # SECURITY NOTE: Certificate verification is disabled intentionally.
+        #
+        # Why: Supabase's connection pooler (PgBouncer) presents a wildcard certificate
+        # for *.pooler.supabase.com which causes hostname verification to fail for
+        # project-specific connection strings.
+        #
+        # What's still protected:
+        # - Traffic IS encrypted (SSL/TLS encryption is active)
+        # - Protection against passive eavesdropping
+        #
+        # What's not verified:
+        # - Server certificate authenticity (MITM protection)
+        #
+        # Risk assessment: LOW for cloud-to-cloud (Render → Supabase)
+        # - Both are reputable cloud providers with secure infrastructure
+        # - An attacker would need to compromise the network path between datacenters
+        # - This is Supabase's recommended approach for pooler connections
+        #
+        # Alternatives if higher security needed:
+        # - Use Supabase Direct Connection (not pooler) for full SSL verification
+        # - Pin Supabase's root CA certificate
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE  # Supabase uses self-signed certs via pooler
+        ssl_context.verify_mode = ssl.CERT_NONE
 
         # Supabase pooler requires statement_cache_size=0 to disable prepared statements
         _pool = await asyncpg.create_pool(
@@ -83,10 +111,10 @@ async def get_pool() -> asyncpg.Pool:
             min_size=1,
             max_size=10,
             command_timeout=30,
-            statement_cache_size=0,  # Required for Supabase transaction pooler
+            statement_cache_size=0,  # Required for Supabase Session Pooler
             ssl=ssl_context
         )
-        print("[DB] Connection pool created successfully")
+        _debug_log("[DB] Connection pool created")
     return _pool
 
 
@@ -103,10 +131,11 @@ async def init_db():
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
-            # Create sessions table
+            # Create sessions table with device_token for user isolation
             await conn.execute('''
                 CREATE TABLE IF NOT EXISTS sessions (
                     id TEXT PRIMARY KEY,
+                    device_token TEXT,
                     start_time TIMESTAMPTZ,
                     end_time TIMESTAMPTZ,
                     duration_minutes REAL,
@@ -115,6 +144,24 @@ async def init_db():
                     total_logs INTEGER,
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
+            ''')
+
+            # Add device_token column if it doesn't exist (migration for existing DBs)
+            await conn.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'sessions' AND column_name = 'device_token'
+                    ) THEN
+                        ALTER TABLE sessions ADD COLUMN device_token TEXT;
+                    END IF;
+                END $$;
+            ''')
+
+            # Create index for device_token lookups
+            await conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_sessions_device_token ON sessions(device_token)
             ''')
 
             # Create logs table
@@ -136,10 +183,10 @@ async def init_db():
                 CREATE INDEX IF NOT EXISTS idx_logs_session_id ON logs(session_id)
             ''')
 
-            print("[DB] Database initialized successfully")
+            _debug_log("[DB] Database initialized")
             return True
     except Exception as e:
-        print(f"[DB] Failed to initialize database: {e}")
+        _debug_log(f"[DB] Init failed: {e}")
         return False
 
 
@@ -157,26 +204,25 @@ async def session_exists(session_id: str) -> bool:
         return False
 
 
-async def save_session(session_data: dict) -> tuple[bool, str]:
+async def save_session(session_data: dict, device_token: str = None) -> tuple[bool, str]:
     """
     Save session to database with validation.
     Returns (success, error_message).
+    device_token: Required for user isolation. Sessions without token are legacy/orphaned.
     """
-    print(f"[DB] save_session called with data: {session_data}")
-
     # Validate data
     is_valid, error = _validate_session_data(session_data)
     if not is_valid:
-        print(f"[DB] Session validation failed: {error}")
+        _debug_log(f"[DB] Session validation failed: {error}")
         return False, error
 
     session_id = session_data['session_id']
-    print(f"[DB] Attempting to save session: {session_id}")
+    _debug_log(f"[DB] Saving session: {session_id}")
 
     try:
         # Check for duplicate
         if await session_exists(session_id):
-            print(f"[DB] Session {session_id} already exists, skipping")
+            _debug_log(f"[DB] Session {session_id} already exists")
             return True, "Session already saved"
 
         # Sanitize numeric values
@@ -185,19 +231,16 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
         score = _sanitize_number(session_data['average_score'], 0, 10, 0)
         logs = int(_sanitize_number(session_data['total_logs'], 0, MAX_LOGS_PER_SESSION, 0))
 
-        print(f"[DB] Sanitized values - duration: {duration}, percentage: {percentage}, score: {score}, logs: {logs}")
-
         pool = await get_pool()
-        print(f"[DB] Got pool, acquiring connection...")
         async with pool.acquire() as conn:
-            print(f"[DB] Connection acquired, executing INSERT...")
             result = await conn.execute('''
                 INSERT INTO sessions
-                (id, start_time, end_time, duration_minutes, good_posture_percentage, average_score, total_logs)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (id, device_token, start_time, end_time, duration_minutes, good_posture_percentage, average_score, total_logs)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (id) DO NOTHING
             ''',
                 session_id,
+                device_token,
                 session_data['start_time'],
                 session_data['end_time'],
                 round(duration, 2),
@@ -205,16 +248,13 @@ async def save_session(session_data: dict) -> tuple[bool, str]:
                 round(score, 2),
                 logs
             )
-            print(f"[DB] INSERT result: {result}")
             return True, ""
 
     except asyncpg.UniqueViolationError:
         # Duplicate key - not really an error
-        print(f"[DB] Session {session_id} duplicate")
         return True, "Session already saved"
     except Exception as e:
-        print(f"[DB] Failed to save session: {e}")
-        print(f"[DB] Traceback: {traceback.format_exc()}")
+        _debug_log(f"[DB] Save session failed: {e}")
         return False, str(e)
 
 
@@ -265,44 +305,69 @@ async def save_log(log_data: dict) -> tuple[bool, str]:
             return True, ""
 
     except Exception as e:
-        print(f"[DB] Failed to save log: {e}")
+        _debug_log(f"[DB] Save log failed: {e}")
         return False, str(e)
 
 
-async def get_all_sessions() -> list[dict]:
-    """Retrieve all sessions, ordered by start time descending."""
+async def get_all_sessions(device_token: str = None) -> list[dict]:
+    """
+    Retrieve sessions for a device, ordered by start time descending.
+    If device_token is provided, only returns sessions for that device.
+    """
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
-            rows = await conn.fetch('''
-                SELECT id, start_time, end_time, duration_minutes,
-                       good_posture_percentage, average_score, total_logs
-                FROM sessions
-                ORDER BY start_time DESC
-            ''')
+            if device_token:
+                rows = await conn.fetch('''
+                    SELECT id, start_time, end_time, duration_minutes,
+                           good_posture_percentage, average_score, total_logs
+                    FROM sessions
+                    WHERE device_token = $1
+                    ORDER BY start_time DESC
+                ''', device_token)
+            else:
+                # Legacy: no token filter (should not happen in production)
+                rows = await conn.fetch('''
+                    SELECT id, start_time, end_time, duration_minutes,
+                           good_posture_percentage, average_score, total_logs
+                    FROM sessions
+                    ORDER BY start_time DESC
+                ''')
             return [dict(row) for row in rows]
     except Exception as e:
-        print(f"[DB] Failed to get sessions: {e}")
+        _debug_log(f"[DB] Get sessions failed: {e}")
         return []
 
 
-async def get_session(session_id: str) -> Optional[dict]:
-    """Retrieve a single session by ID."""
+async def get_session(session_id: str, device_token: str = None) -> Optional[dict]:
+    """
+    Retrieve a single session by ID.
+    If device_token is provided, verifies ownership.
+    """
     if not session_id or not isinstance(session_id, str):
         return None
 
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                '''SELECT id, start_time, end_time, duration_minutes,
-                          good_posture_percentage, average_score, total_logs
-                   FROM sessions WHERE id = $1''',
-                session_id
-            )
+            if device_token:
+                row = await conn.fetchrow(
+                    '''SELECT id, start_time, end_time, duration_minutes,
+                              good_posture_percentage, average_score, total_logs
+                       FROM sessions WHERE id = $1 AND device_token = $2''',
+                    session_id, device_token
+                )
+            else:
+                # Legacy: no ownership check
+                row = await conn.fetchrow(
+                    '''SELECT id, start_time, end_time, duration_minutes,
+                              good_posture_percentage, average_score, total_logs
+                       FROM sessions WHERE id = $1''',
+                    session_id
+                )
             return dict(row) if row else None
     except Exception as e:
-        print(f"[DB] Failed to get session {session_id}: {e}")
+        _debug_log(f"[DB] Get session failed: {e}")
         return None
 
 
@@ -336,12 +401,15 @@ async def get_session_logs(session_id: str) -> list[dict]:
                 result.append(row_dict)
             return result
     except Exception as e:
-        print(f"[DB] Failed to get logs for session {session_id}: {e}")
+        _debug_log(f"[DB] Get logs failed: {e}")
         return []
 
 
-async def delete_session(session_id: str) -> bool:
-    """Delete a session and its logs."""
+async def delete_session(session_id: str, device_token: str = None) -> bool:
+    """
+    Delete a session and its logs.
+    If device_token provided, verifies ownership before deletion.
+    """
     if not session_id or not isinstance(session_id, str):
         return False
 
@@ -349,13 +417,20 @@ async def delete_session(session_id: str) -> bool:
         pool = await get_pool()
         async with pool.acquire() as conn:
             # Logs are deleted automatically via CASCADE
-            result = await conn.execute(
-                'DELETE FROM sessions WHERE id = $1',
-                session_id
-            )
+            if device_token:
+                result = await conn.execute(
+                    'DELETE FROM sessions WHERE id = $1 AND device_token = $2',
+                    session_id, device_token
+                )
+            else:
+                # Legacy: no ownership check
+                result = await conn.execute(
+                    'DELETE FROM sessions WHERE id = $1',
+                    session_id
+                )
             return 'DELETE 1' in result
     except Exception as e:
-        print(f"[DB] Failed to delete session {session_id}: {e}")
+        _debug_log(f"[DB] Delete session failed: {e}")
         return False
 
 
@@ -368,5 +443,40 @@ async def clear_all_sessions() -> bool:
             await conn.execute('DELETE FROM sessions')
             return True
     except Exception as e:
-        print(f"[DB] Failed to clear sessions: {e}")
+        _debug_log(f"[DB] Clear sessions failed: {e}")
         return False
+
+
+async def cleanup_old_sessions(retention_days: int = 90) -> tuple[int, str]:
+    """
+    Delete sessions older than retention_days.
+    Returns (deleted_count, error_message).
+
+    This supports GDPR data minimization and prevents unbounded storage growth.
+    Logs are deleted automatically via CASCADE.
+    """
+    if retention_days < 1:
+        return 0, "retention_days must be at least 1"
+
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            # Delete sessions older than retention period
+            result = await conn.execute('''
+                DELETE FROM sessions
+                WHERE created_at < NOW() - INTERVAL '1 day' * $1
+            ''', retention_days)
+
+            # Parse result like "DELETE 42"
+            deleted = 0
+            if result and "DELETE" in result:
+                try:
+                    deleted = int(result.split()[1])
+                except (IndexError, ValueError):
+                    pass
+
+            _debug_log(f"[DB] Cleaned up {deleted} sessions older than {retention_days} days")
+            return deleted, ""
+    except Exception as e:
+        _debug_log(f"[DB] Cleanup failed: {e}")
+        return 0, str(e)

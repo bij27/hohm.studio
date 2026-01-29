@@ -1,10 +1,27 @@
+# robots.txt for hohm.studio
+
 User-agent: *
 Allow: /
+Allow: /app
+Allow: /yoga
+Allow: /privacy
 
+# Disallow sensitive and non-public paths
+Disallow: /api/
+Disallow: /ws/
+Disallow: /health
+Disallow: /review/
+Disallow: /sessions
+
+# Allow Google AdSense bot full access
 User-agent: Mediapartners-Google
 Allow: /
 
+# Allow Googlebot full access to public pages
 User-agent: Googlebot
 Allow: /
+Disallow: /api/
+Disallow: /ws/
+Disallow: /health
 
 Sitemap: https://hohm.studio/sitemap.xml

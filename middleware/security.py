@@ -7,13 +7,15 @@ Implements:
 - Rate limiting per IP
 - Request size limits
 - HTTPS enforcement (production)
+- WebSocket origin validation
 """
 
 import time
 import hashlib
 from collections import defaultdict
 from typing import Callable, Dict, Tuple
-from fastapi import Request, Response
+from urllib.parse import urlparse
+from fastapi import Request, Response, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import config as cfg
@@ -173,6 +175,9 @@ def get_csp_header(nonce: str = None) -> str:
         # Worker: self and blob (for MediaPipe WASM workers)
         "worker-src 'self' blob:",
 
+        # Block all mixed content in production
+        "block-all-mixed-content" if cfg.ENVIRONMENT == "production" else "",
+
         # Upgrade insecure requests in production
         "upgrade-insecure-requests" if cfg.ENVIRONMENT == "production" else "",
     ]
@@ -199,6 +204,12 @@ def get_security_headers() -> Dict[str, str]:
 
         # Permissions policy - restrict browser features
         "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=()",
+
+        # Cross-Origin-Opener-Policy - isolate browsing context
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+
+        # Cross-Origin-Resource-Policy - prevent unauthorized resource loading
+        "Cross-Origin-Resource-Policy": "same-origin",
 
         # Content Security Policy
         "Content-Security-Policy": get_csp_header(),
@@ -242,7 +253,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             if not allowed:
                 return JSONResponse(
                     status_code=429,
-                    content={"detail": reason},
+                    content={"detail": "Too many requests"},
                     headers={"Retry-After": "60"}
                 )
 
@@ -251,7 +262,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         if content_length and int(content_length) > self.MAX_BODY_SIZE:
             return JSONResponse(
                 status_code=413,
-                content={"detail": "Request entity too large"}
+                content={"detail": "Request rejected"}
             )
 
         # HTTPS enforcement in production (skip for localhost/local IPs)
@@ -277,6 +288,50 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             response.headers[header] = value
 
         return response
+
+
+# === WEBSOCKET ORIGIN VALIDATION ===
+
+def validate_websocket_origin(websocket: WebSocket) -> bool:
+    """
+    Validate WebSocket origin to prevent cross-site WebSocket hijacking (CSWSH).
+    Returns True if origin is allowed, False otherwise.
+
+    Cross-site WebSocket hijacking allows malicious websites to connect to your
+    WebSocket endpoints using a victim's authenticated session. This validation
+    ensures only requests from allowed origins can establish connections.
+    """
+    origin = websocket.headers.get("origin", "")
+
+    # In development, allow all origins for easier testing
+    if cfg.ENVIRONMENT == "development":
+        return True
+
+    if not origin:
+        # No origin header - could be same-origin request or non-browser client
+        # Allow for now, but other security measures (device tokens) still apply
+        return True
+
+    try:
+        parsed = urlparse(origin)
+        origin_host = parsed.netloc.lower()
+
+        # Check against allowed origins from config
+        for allowed in cfg.ALLOWED_ORIGINS:
+            if allowed == "*":
+                return True
+
+            allowed_parsed = urlparse(allowed)
+            allowed_host = allowed_parsed.netloc.lower()
+
+            if origin_host == allowed_host:
+                return True
+
+    except Exception:
+        # Parsing error - reject for safety
+        return False
+
+    return False
 
 
 class RequestValidationMiddleware(BaseHTTPMiddleware):
@@ -312,7 +367,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
             if pattern.lower() in path or pattern.lower() in query:
                 return JSONResponse(
                     status_code=400,
-                    content={"detail": "Invalid request"}
+                    content={"detail": "Bad request"}
                 )
 
         # Check User-Agent for common attack tools
@@ -320,8 +375,8 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         blocked_agents = ["sqlmap", "nikto", "nessus", "acunetix", "nmap"]
         if any(agent in user_agent for agent in blocked_agents):
             return JSONResponse(
-                status_code=403,
-                content={"detail": "Forbidden"}
+                status_code=400,
+                content={"detail": "Bad request"}
             )
 
         return await call_next(request)

@@ -64,7 +64,34 @@ RATE_LIMIT_REQUESTS_PER_MINUTE = int(os.getenv("RATE_LIMIT_RPM", "120"))
 RATE_LIMIT_BURST = int(os.getenv("RATE_LIMIT_BURST", "30"))
 
 # Session security
-SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-change-in-production")
+_default_secret = "dev-secret-change-in-production"
+_session_secret = os.getenv("SESSION_SECRET_KEY", _default_secret)
+
+# Validate secret key security
+if ENVIRONMENT == "production":
+    if _session_secret == _default_secret:
+        raise ValueError(
+            "CRITICAL: SESSION_SECRET_KEY is using the default value in production! "
+            "Generate a secure key with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+    if len(_session_secret) < 32:
+        raise ValueError(
+            f"CRITICAL: SESSION_SECRET_KEY must be at least 32 characters (got {len(_session_secret)}). "
+            "Generate a secure key with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+elif _session_secret == _default_secret:
+    import warnings
+    warnings.warn(
+        "Using default SESSION_SECRET_KEY - this is fine for development but must be changed in production",
+        UserWarning
+    )
+
+SESSION_SECRET_KEY = _session_secret
 COOKIE_SECURE = ENVIRONMENT == "production"
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = "strict"
+
+# Data retention policy (GDPR/privacy compliance)
+# Sessions older than this will be automatically deleted
+DATA_RETENTION_DAYS = int(os.getenv("DATA_RETENTION_DAYS", "90"))  # Default 90 days
+DATA_CLEANUP_INTERVAL_HOURS = int(os.getenv("DATA_CLEANUP_INTERVAL_HOURS", "24"))  # Run daily

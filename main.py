@@ -8,21 +8,54 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 from api.routes import router as api_router
 from api.websocket import router as ws_router
-from models.database import init_db, close_pool
-from middleware.security import SecurityMiddleware, RequestValidationMiddleware
+from models.database import init_db, close_pool, cleanup_old_sessions
+from middleware.security import SecurityMiddleware, RequestValidationMiddleware, validate_websocket_origin
 from websocket_manager import ws_manager
+import asyncio
 from yoga_voice import generate_session_voice_script
 import os
 import config as cfg
 
 
+# Background task for data retention cleanup
+_cleanup_task = None
+
+async def _data_retention_cleanup():
+    """Background task to periodically clean up old session data."""
+    interval_hours = cfg.DATA_CLEANUP_INTERVAL_HOURS
+    retention_days = cfg.DATA_RETENTION_DAYS
+
+    while True:
+        try:
+            await asyncio.sleep(interval_hours * 3600)  # Convert hours to seconds
+            deleted, error = await cleanup_old_sessions(retention_days)
+            if error:
+                if cfg.ENVIRONMENT == "development":
+                    print(f"[CLEANUP] Error: {error}")
+            elif deleted > 0 and cfg.ENVIRONMENT == "development":
+                print(f"[CLEANUP] Removed {deleted} sessions older than {retention_days} days")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            if cfg.ENVIRONMENT == "development":
+                print(f"[CLEANUP] Unexpected error: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _cleanup_task
     # Startup
     await init_db()
     ws_manager.start_cleanup_task()  # Start room cleanup background task
+    _cleanup_task = asyncio.create_task(_data_retention_cleanup())  # Start data retention cleanup
     yield
     # Shutdown
+    if _cleanup_task:
+        _cleanup_task.cancel()
+        try:
+            await _cleanup_task
+        except asyncio.CancelledError:
+            pass
     await close_pool()
 
 
@@ -72,6 +105,11 @@ async def robots():
 async def ads():
     return FileResponse("static/ads.txt", media_type="text/plain")
 
+@app.get("/security.txt")
+@app.get("/.well-known/security.txt")
+async def security_txt():
+    return FileResponse("static/.well-known/security.txt", media_type="text/plain")
+
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/privacy")
@@ -96,6 +134,8 @@ async def yoga_remote_entry(request: Request):
 
 @app.get("/yoga/remote/{code}")
 async def yoga_remote_page(request: Request, code: str):
+    """Join a room via code (manual entry)."""
+    code = code.strip().upper()
     if not ws_manager.room_exists(code):
         return templates.TemplateResponse("yoga_remote_entry.html", {
             "request": request,
@@ -103,56 +143,92 @@ async def yoga_remote_page(request: Request, code: str):
         })
     return templates.TemplateResponse("yoga_remote.html", {"request": request, "code": code})
 
+@app.get("/yoga/join")
+async def yoga_join_via_token(request: Request, token: str = ""):
+    """Join a room via QR code token (secure, single-use)."""
+    if not token:
+        return templates.TemplateResponse("yoga_remote_entry.html", {
+            "request": request,
+            "error": "Invalid link. Please scan the QR code again or enter a code manually."
+        })
+
+    room, error = ws_manager.validate_token(token)
+    if not room:
+        return templates.TemplateResponse("yoga_remote_entry.html", {
+            "request": request,
+            "error": error
+        })
+
+    # Token valid - redirect to room
+    return templates.TemplateResponse("yoga_remote.html", {"request": request, "code": room.code})
+
 # Yoga Session WebSocket Endpoints
 @app.post("/api/yoga/room")
-async def create_yoga_room():
-    """Create a new yoga session room and return the code."""
-    code = ws_manager.create_room()
-    return JSONResponse({"code": code})
+async def create_yoga_room(request: Request):
+    """Create a new yoga session room and return the code + token for QR."""
+    room_info = ws_manager.create_room()
+
+    # Build the QR URL with the secure token
+    host = request.headers.get("host", "localhost")
+    scheme = "https" if cfg.ENVIRONMENT == "production" else request.url.scheme
+    qr_url = f"{scheme}://{host}/yoga/join?token={room_info['token']}"
+
+    return JSONResponse({
+        "code": room_info["code"],
+        "token": room_info["token"],
+        "qr_url": qr_url
+    })
 
 @app.post("/api/yoga/voice-script")
 async def generate_voice_script(request: Request):
     """Generate voice script with audio URLs for a yoga session."""
     data = await request.json()
 
-    # Debug: Log received data
-    print(f"\n[VOICE] ========== RECEIVED SESSION DATA ==========")
-    print(f"[VOICE] Duration: {data.get('duration')}, Focus: {data.get('focus')}")
-    print(f"[VOICE] Poses received: {len(data.get('poses', []))}")
-    for i, pose in enumerate(data.get('poses', [])):
-        instructions = pose.get('instructions', [])
-        print(f"[VOICE] Pose {i}: {pose.get('name')} - {len(instructions)} instructions")
-        for j, inst in enumerate(instructions):
-            print(f"  [{j}]: {inst[:50]}...")
-    print(f"[VOICE] ================================================\n")
+    # Debug logging only in development
+    if cfg.ENVIRONMENT == "development":
+        print(f"[VOICE] Duration: {data.get('duration')}, Focus: {data.get('focus')}, Poses: {len(data.get('poses', []))}")
 
     script = await generate_session_voice_script(data)
 
-    # Debug: Log script breakdown
-    print(f"[VOICE] Generated {len(script)} items")
-    by_pose = {}
-    by_type = {}
-    for item in script:
-        pose_idx = item.get('pose_index', 'session')
-        by_pose[pose_idx] = by_pose.get(pose_idx, 0) + 1
-        item_type = item.get('type', 'unknown')
-        by_type[item_type] = by_type.get(item_type, 0) + 1
-    print(f"[VOICE] By pose: {by_pose}")
-    print(f"[VOICE] By type: {by_type}")
+    if cfg.ENVIRONMENT == "development":
+        print(f"[VOICE] Generated {len(script)} script items")
 
     return JSONResponse({"script": script})
 
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request, considering proxies."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
+
 @app.get("/api/yoga/room/{code}")
-async def check_yoga_room(code: str):
-    """Check if a room exists."""
-    exists = ws_manager.room_exists(code)
-    return JSONResponse({"exists": exists})
+async def check_yoga_room(request: Request, code: str):
+    """Check if a room exists (with rate limiting)."""
+    client_ip = _get_client_ip(request)
+    room, error = ws_manager.validate_code(code, client_ip)
+
+    if error:
+        # Generic error to avoid revealing validation details
+        return JSONResponse({"exists": False}, status_code=404)
+
+    return JSONResponse({"exists": True})
 
 @app.websocket("/ws/yoga/desktop/{code}")
 async def yoga_desktop_websocket(websocket: WebSocket, code: str):
     """WebSocket endpoint for desktop yoga session."""
+    # Validate origin to prevent cross-site WebSocket hijacking
+    if not validate_websocket_origin(websocket):
+        await websocket.close(code=4000, reason="Connection rejected")
+        return
+
     if not await ws_manager.connect_desktop(websocket, code):
-        await websocket.close(code=4004, reason="Room not found")
+        await websocket.close(code=4000, reason="Connection rejected")
         return
 
     try:
@@ -164,24 +240,28 @@ async def yoga_desktop_websocket(websocket: WebSocket, code: str):
     except Exception:
         await ws_manager.disconnect(websocket, code)
 
-# Remote WebSocket handler with debug logging
 @app.websocket("/ws/yoga/remote/{code}")
 async def yoga_remote_websocket(websocket: WebSocket, code: str):
     """WebSocket endpoint for phone remote."""
+    # Validate origin to prevent cross-site WebSocket hijacking
+    if not validate_websocket_origin(websocket):
+        await websocket.close(code=4000, reason="Connection rejected")
+        return
+
     if not await ws_manager.connect_remote(websocket, code):
-        await websocket.close(code=4004, reason="Room not found")
+        await websocket.close(code=4000, reason="Connection rejected")
         return
 
     try:
         while True:
             data = await websocket.receive_json()
-            print(f"[MAIN] Received from remote: {data}", flush=True)
             await ws_manager.handle_remote_message(code, data)
     except WebSocketDisconnect:
-        print(f"[MAIN] Remote disconnected: {code}", flush=True)
         await ws_manager.disconnect(websocket, code)
     except Exception as e:
-        print(f"[MAIN] Remote error: {code} - {e}", flush=True)
+        # Log errors only in development to avoid leaking info
+        if cfg.ENVIRONMENT == "development":
+            print(f"[WS] Remote error: {code} - {e}")
         await ws_manager.disconnect(websocket, code)
 
 # Mount static files

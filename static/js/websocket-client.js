@@ -6,7 +6,10 @@ class PostureWSClient {
         this.reconnectAttempts = 0;
     }
 
-    connect() {
+    async connect() {
+        // Initialize device auth first
+        const deviceToken = await DeviceAuth.initAuth();
+
         // Auto-detect secure WebSocket based on page protocol
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         this.socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
@@ -15,6 +18,12 @@ class PostureWSClient {
             console.log("[WS] Connected");
             this.reconnectAttempts = 0;
             if (this.onConnectionChange) this.onConnectionChange(true, false);
+
+            // Send device token for session ownership
+            if (deviceToken) {
+                this.socket.send(JSON.stringify({ action: 'set_device_token', token: deviceToken }));
+                console.log("[WS] Device token sent");
+            }
 
             // Send stored profile from localStorage if available
             const storedProfile = localStorage.getItem('hohm_profile');
@@ -50,7 +59,9 @@ class PostureWSClient {
             if (this.onConnectionChange) this.onConnectionChange(false, true);
             if (this.reconnectAttempts < 5) {
                 this.reconnectAttempts++;
-                setTimeout(() => this.connect(), 2000);
+                setTimeout(() => {
+                    this.connect().catch(e => console.error("[WS] Reconnect failed:", e));
+                }, 2000);
             }
         };
 

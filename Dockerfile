@@ -18,16 +18,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Create non-root user for security
+# UID 1000 is commonly used and works well with container runtimes
+RUN groupadd --gid 1000 appgroup && \
+    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+
+# Install dependencies as root (before switching user)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
-COPY . .
+# Copy project files
+COPY --chown=appuser:appgroup . .
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/static/audio/voice && \
+    chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
 
 # Expose port (Render uses PORT env var, default 10000)
 EXPOSE 10000
 
 # Run with single uvicorn worker for WebSocket compatibility
 # Render provides PORT env var automatically
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}"]

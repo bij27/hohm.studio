@@ -1,0 +1,23 @@
+# Security Policy for hohm.studio
+# RFC 9116 compliant security.txt
+
+# Contact for security vulnerabilities
+Contact: mailto:security@hohm.studio
+
+# Preferred languages for communication
+Preferred-Languages: en
+
+# Policy page (update with your actual security policy URL)
+# Policy: https://hohm.studio/security-policy
+
+# Encryption key for secure communication (optional - add PGP key URL if available)
+# Encryption: https://hohm.studio/.well-known/pgp-key.txt
+
+# Acknowledgments page for security researchers (optional)
+# Acknowledgments: https://hohm.studio/security-thanks
+
+# Expiration date - update annually
+Expires: 2027-01-29T00:00:00.000Z
+
+# Canonical URL for this file
+Canonical: https://hohm.studio/.well-known/security.txt

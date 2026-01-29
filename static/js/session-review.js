@@ -19,7 +19,9 @@ function escapeHtml(text) {
 
 async function loadSessionData() {
     try {
-        const response = await fetch(`/api/sessions/${SESSION_ID}`);
+        // Initialize auth and fetch session with device token
+        await DeviceAuth.initAuth();
+        const response = await DeviceAuth.authFetch(`/api/sessions/${SESSION_ID}`);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }

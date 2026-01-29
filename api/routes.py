@@ -4,9 +4,10 @@ from fastapi.templating import Jinja2Templates
 import re
 from models.database import (
     get_all_sessions, get_session, get_session_logs,
-    delete_session, clear_all_sessions, get_pool
+    delete_session, get_pool
 )
 from services.report_generator import ReportGenerator
+from middleware.auth import require_device_token, generate_device_token, TOKEN_HEADER
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -43,27 +44,44 @@ async def sessions_page(request: Request):
 async def review(request: Request, session_id: str):
     # Strict UUID validation to prevent XSS and injection
     if not validate_session_id(session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID format")
+        raise HTTPException(status_code=404, detail="Not found")
     return templates.TemplateResponse("review.html", {"request": request, "session_id": session_id})
+
+
+# === Device Token API ===
+
+@router.post("/api/auth/device-token")
+async def create_device_token():
+    """Generate a new device token for anonymous authentication."""
+    token = generate_device_token()
+    return JSONResponse(
+        content={"token": token},
+        headers={TOKEN_HEADER: token}
+    )
 
 
 # === Sessions API ===
 
 @router.get("/api/sessions")
-async def api_list_sessions():
-    sessions = await get_all_sessions()
+async def api_list_sessions(request: Request):
+    """List all sessions for the authenticated device."""
+    device_token = require_device_token(request)
+    sessions = await get_all_sessions(device_token)
     return sessions
 
 
 @router.get("/api/sessions/{session_id}")
-async def api_get_session(session_id: str):
+async def api_get_session(request: Request, session_id: str):
+    """Get a specific session (must belong to authenticated device)."""
+    device_token = require_device_token(request)
+
     # Strict UUID validation
     if not validate_session_id(session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID")
+        raise HTTPException(status_code=404, detail="Not found")
 
-    session = await get_session(session_id)
+    session = await get_session(session_id, device_token)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Not found")
 
     logs = await get_session_logs(session_id)
 
@@ -88,41 +106,48 @@ async def api_get_session(session_id: str):
 
 
 @router.delete("/api/sessions/{session_id}")
-async def api_delete_session(session_id: str):
+async def api_delete_session(request: Request, session_id: str):
+    """Delete a session (must belong to authenticated device)."""
+    device_token = require_device_token(request)
+
     # Strict UUID validation
     if not validate_session_id(session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID")
+        raise HTTPException(status_code=404, detail="Not found")
 
-    # Check if session exists
-    session = await get_session(session_id)
+    # Check if session exists and belongs to this device
+    session = await get_session(session_id, device_token)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Not found")
 
     # Delete session (logs are deleted via CASCADE)
-    success = await delete_session(session_id)
+    success = await delete_session(session_id, device_token)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete session")
+        raise HTTPException(status_code=500, detail="Operation failed")
 
     return {"status": "success"}
 
 
 @router.get("/api/sessions/{session_id}/export")
-async def api_export_session(session_id: str):
-    data = await api_get_session(session_id)
+async def api_export_session(request: Request, session_id: str):
+    """Export session data (must belong to authenticated device)."""
+    # This reuses the auth check from api_get_session
+    data = await api_get_session(request, session_id)
     return JSONResponse(content=data)
 
 
-@router.post("/api/sessions/clear")
-async def api_clear_all_sessions():
-    success = await clear_all_sessions()
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to clear sessions")
-    return {"status": "success"}
+# NOTE: Mass deletion endpoint (/api/sessions/clear) was removed for security.
+# To clear all sessions, use Supabase Dashboard directly:
+# SQL: DELETE FROM sessions;  (logs cascade automatically)
 
 
 @router.get("/api/db-health")
-async def db_health_check():
-    """Check database connectivity and table existence."""
+async def db_health_check(request: Request):
+    """
+    Check database connectivity and table existence.
+    NOTE: In production, this endpoint returns minimal info to avoid information leakage.
+    """
+    import config as cfg
+
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
@@ -137,7 +162,14 @@ async def db_health_check():
                 "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'logs')"
             )
 
-            # Count sessions
+            # In production, return minimal info to avoid information leakage
+            if cfg.ENVIRONMENT == "production":
+                return {
+                    "status": "healthy",
+                    "connected": result == 1
+                }
+
+            # In development, include detailed info for debugging
             session_count = await conn.fetchval("SELECT COUNT(*) FROM sessions") if sessions_exists else 0
             log_count = await conn.fetchval("SELECT COUNT(*) FROM logs") if logs_exists else 0
 
@@ -154,6 +186,10 @@ async def db_health_check():
                 }
             }
     except Exception as e:
+        # In production, don't leak error details
+        if cfg.ENVIRONMENT == "production":
+            return {"status": "error"}
+
         return {
             "status": "error",
             "error": str(e),
