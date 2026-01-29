@@ -34,10 +34,6 @@
     let lastGoodTimeMinutes = 0;
     let lastBadTimeMinutes = 0;
 
-    // Screenshot capture state
-    let lastScreenshotTime = 0;
-    const SCREENSHOT_INTERVAL_MS = 30000;  // Capture every 30 seconds during bad posture
-
     // === PiP (Picture-in-Picture) State ===
     let pipWindow = null;
     let pipCanvas = null;
@@ -196,63 +192,11 @@
         
         if (els.sessionBtn) {
             els.sessionBtn.disabled = false;
-            els.sessionBtn.innerText = "Stop Session";
-            els.sessionBtn.style.backgroundColor = "red";
+            els.sessionBtn.innerHTML = '<i data-lucide="square" style="margin-right: 8px;"></i>Stop Session';
+            els.sessionBtn.style.backgroundColor = "#c97b7b";
+            if (window.lucide) window.lucide.createIcons();
         }
         console.log("[UI] Dashboard Activated.");
-    }
-
-    // --- Screenshot Capture ---
-    function captureScreenshot(score, issues) {
-        if (!els.webcam || !els.canvas) return null;
-
-        try {
-            // Create a temporary canvas to capture the webcam frame
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = els.webcam.videoWidth;
-            tempCanvas.height = els.webcam.videoHeight;
-            const ctx = tempCanvas.getContext('2d');
-
-            // Draw the video frame
-            ctx.drawImage(els.webcam, 0, 0);
-
-            // Add overlay with score
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(0, 0, 200, 80);
-            ctx.fillStyle = score < 5 ? '#FF4444' : '#FFAA00';
-            ctx.font = 'bold 24px sans-serif';
-            ctx.fillText(`Score: ${score}/10`, 10, 35);
-            ctx.font = '16px sans-serif';
-            ctx.fillStyle = '#FFFFFF';
-            if (issues && issues.length > 0) {
-                ctx.fillText(issues[0].type || 'Bad posture', 10, 60);
-            }
-
-            // Convert to base64
-            return tempCanvas.toDataURL('image/jpeg', 0.7);
-        } catch (e) {
-            console.error('[SCREENSHOT] Failed to capture:', e);
-            return null;
-        }
-    }
-
-    function sendLogWithScreenshot(score, status, issues) {
-        if (!window.wsClient || !window.wsClient.socket ||
-            window.wsClient.socket.readyState !== WebSocket.OPEN) {
-            return;
-        }
-
-        const screenshot = captureScreenshot(score, issues);
-
-        window.wsClient.socket.send(JSON.stringify({
-            action: 'log_posture',
-            score: score,
-            status: status,
-            issues: issues || [],
-            screenshot: screenshot  // Base64 encoded image
-        }));
-
-        console.log('[LOG] Sent posture log with screenshot');
     }
 
     // --- Audio Feedback Engine ---
@@ -320,7 +264,7 @@
         }
 
         try {
-            const notification = new Notification('Posture Check 🧘', {
+            const notification = new Notification('Posture Check', {
                 body: tip || 'Time to adjust your posture',
                 icon: '/static/images/logo.png',
                 badge: '/static/images/logo.png',
@@ -591,25 +535,44 @@
 
     // Handle page visibility changes
     let hasShownPipPrompt = false;
+    let tabHiddenTime = null;
     function handleVisibilityChange() {
         if (currentState !== APP_STATE.MONITORING) return;
 
-        if (document.hidden && !isPipActive) {
-            // Can't auto-start PiP (requires user gesture)
-            // Send a notification reminding user about PiP instead
-            if (!hasShownPipPrompt && notificationPermission === 'granted') {
-                try {
-                    new Notification('hohm.studio is still watching', {
-                        body: 'Click the PiP button to float the video while you work',
-                        icon: '/static/images/logo.png',
-                        tag: 'pip-reminder',
-                        requireInteraction: false,
-                        silent: true
-                    });
-                    hasShownPipPrompt = true;  // Only show once per session
-                } catch (e) {
-                    // Ignore notification errors
+        if (document.hidden) {
+            // Tab is now hidden
+            tabHiddenTime = Date.now();
+
+            if (!isPipActive) {
+                // Can't auto-start PiP (requires user gesture)
+                // Send a notification reminding user about PiP instead
+                if (!hasShownPipPrompt && notificationPermission === 'granted') {
+                    try {
+                        new Notification('hohm.studio is still watching', {
+                            body: 'Click the PiP button to float the video while you work',
+                            icon: '/static/images/logo.png',
+                            tag: 'pip-reminder',
+                            requireInteraction: false,
+                            silent: true
+                        });
+                        hasShownPipPrompt = true;  // Only show once per session
+                    } catch (e) {
+                        // Ignore notification errors
+                    }
                 }
+            }
+        } else {
+            // Tab is now visible again
+            if (tabHiddenTime) {
+                const hiddenDuration = Date.now() - tabHiddenTime;
+                // If tab was hidden for more than 30 seconds without PiP,
+                // the timer might be inaccurate (detection paused)
+                if (hiddenDuration > 30000 && !isPipActive) {
+                    console.log(`[VISIBILITY] Tab was hidden for ${Math.round(hiddenDuration/1000)}s without PiP`);
+                    // Timer continued but detection may have been paused
+                    // This is informational - we don't reset the timer
+                }
+                tabHiddenTime = null;
             }
         }
     }
@@ -934,6 +897,11 @@
             // Check if MediaPipe module loaded
             if (typeof tasksVision === 'undefined') {
                 console.error("[AI OFFLINE] window.tasksVision not found.");
+                showError(
+                    "AI Model Failed to Load",
+                    "Could not load pose detection from CDN. Check your internet connection and refresh the page.",
+                    true
+                );
                 return false;
             }
 
@@ -963,7 +931,106 @@
         } catch (e) {
             console.error("[AI OFFLINE] Initialization Failed:", e);
             poseLandmarker = null;
+            showError(
+                "AI Model Failed to Load",
+                "Pose detection timed out. This may be due to slow internet. Please refresh and try again.",
+                true
+            );
             return false;
+        }
+    }
+
+    // --- Check localStorage availability ---
+    function isLocalStorageAvailable() {
+        try {
+            const test = '__storage_test__';
+            localStorage.setItem(test, test);
+            localStorage.removeItem(test);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // --- Check PiP browser support ---
+    function isPipSupported() {
+        return document.pictureInPictureEnabled &&
+               typeof HTMLVideoElement.prototype.requestPictureInPicture === 'function';
+    }
+
+    // --- Webcam disconnect detection ---
+    let webcamCheckInterval = null;
+    function startWebcamMonitoring() {
+        if (webcamCheckInterval) return;
+
+        webcamCheckInterval = setInterval(() => {
+            if (currentState !== APP_STATE.MONITORING && currentState !== APP_STATE.CALIBRATING) return;
+
+            if (els.webcam) {
+                const stream = els.webcam.srcObject;
+                if (stream) {
+                    const videoTrack = stream.getVideoTracks()[0];
+                    if (videoTrack && videoTrack.readyState === 'ended') {
+                        console.error('[WEBCAM] Video track ended - camera disconnected');
+                        showError(
+                            "Camera Disconnected",
+                            "Your camera was disconnected. Please reconnect it and refresh the page.",
+                            true
+                        );
+                        stopWebcamMonitoring();
+                    }
+                }
+            }
+        }, 2000);  // Check every 2 seconds
+    }
+
+    function stopWebcamMonitoring() {
+        if (webcamCheckInterval) {
+            clearInterval(webcamCheckInterval);
+            webcamCheckInterval = null;
+        }
+    }
+
+    // --- Poor lighting / low visibility detection ---
+    let lowVisibilityWarningShown = false;
+    let consecutiveLowVisibilityFrames = 0;
+    const LOW_VISIBILITY_THRESHOLD = 0.5;  // Visibility below 50%
+    const LOW_VISIBILITY_FRAME_THRESHOLD = 30;  // ~1 second of low visibility
+
+    function checkLandmarkVisibility(worldLandmarks) {
+        if (!worldLandmarks || lowVisibilityWarningShown) return;
+
+        // Check visibility of key landmarks (shoulders, head)
+        const keyLandmarkIndices = [0, 11, 12];  // nose, left shoulder, right shoulder
+        let avgVisibility = 0;
+        let count = 0;
+
+        for (const idx of keyLandmarkIndices) {
+            if (worldLandmarks[idx]?.visibility !== undefined) {
+                avgVisibility += worldLandmarks[idx].visibility;
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            avgVisibility /= count;
+
+            if (avgVisibility < LOW_VISIBILITY_THRESHOLD) {
+                consecutiveLowVisibilityFrames++;
+
+                if (consecutiveLowVisibilityFrames > LOW_VISIBILITY_FRAME_THRESHOLD) {
+                    console.warn('[VISIBILITY] Low landmark visibility detected:', avgVisibility.toFixed(2));
+                    // Show warning in the active issues container
+                    if (els.metricsContainer && currentState === APP_STATE.MONITORING) {
+                        els.metricsContainer.style.display = 'block';
+                        els.metricsContainer.innerHTML = '<strong>Tip:</strong> Try improving your lighting for better tracking';
+                        els.metricsContainer.style.color = '#FF9800';
+                    }
+                    lowVisibilityWarningShown = true;  // Only show once per session
+                }
+            } else {
+                consecutiveLowVisibilityFrames = 0;  // Reset counter
+            }
         }
     }
 
@@ -1007,6 +1074,9 @@
                                 // Use normalized landmarks for drawing, worldLandmarks for analysis (has visibility)
                                 const normalizedLandmarks = results.landmarks[0];
                                 const worldLandmarks = results.worldLandmarks?.[0] || normalizedLandmarks;
+
+                                // Check for poor lighting conditions
+                                checkLandmarkVisibility(worldLandmarks);
 
                                 lastKnownLandmarks = normalizedLandmarks;
 
@@ -1283,6 +1353,8 @@
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
             if (els.webcam) els.webcam.srcObject = stream;
+            // Start monitoring for camera disconnection
+            startWebcamMonitoring();
         } catch (e) {
             console.error("[CAMERA ERROR]", e);
 
@@ -1320,7 +1392,8 @@
         if (els.sessionBtn) {
             els.sessionBtn.classList.remove('btn-loading');
             els.sessionBtn.disabled = true;
-            els.sessionBtn.innerText = "Aligning...";
+            els.sessionBtn.innerHTML = '<i data-lucide="target" style="margin-right: 8px;"></i>Aligning...';
+            if (window.lucide) window.lucide.createIcons();
         }
         if (els.calibrationLabel) {
             els.calibrationLabel.style.display = 'block';
@@ -1357,16 +1430,30 @@
     window.addEventListener('load', () => {
         initElements();
 
+        // Check localStorage availability for consent
+        if (!isLocalStorageAvailable()) {
+            console.warn('[STORAGE] localStorage not available - consent may not persist');
+            // Show warning but don't block - user can still use the app
+        }
+
         // Request notification permission early
         requestNotificationPermission();
 
         // Add visibility change listener for auto-PiP
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // Set up PiP button if it exists
+        // Set up PiP button if it exists - check browser support first
         const pipBtn = document.getElementById('pip-btn');
         if (pipBtn) {
-            pipBtn.onclick = togglePip;
+            if (isPipSupported()) {
+                pipBtn.onclick = togglePip;
+            } else {
+                pipBtn.disabled = true;
+                pipBtn.title = 'Picture-in-Picture not supported in this browser';
+                pipBtn.style.opacity = '0.5';
+                pipBtn.style.cursor = 'not-allowed';
+                console.log('[PIP] Not supported in this browser');
+            }
         }
 
         // Set up notification toggle
@@ -1475,13 +1562,6 @@
                         // Debug log
                         if (Math.random() < 0.05) {  // Log 5% of updates
                             console.log(`[POSTURE] Score: ${score}, Status: ${status}, Timer: ${isGoodPosture ? 'GOOD' : 'BAD'}`);
-                        }
-
-                        // Capture screenshot for bad posture (score < 7) every 30 seconds
-                        const now = Date.now();
-                        if (score < 7 && (now - lastScreenshotTime) >= SCREENSHOT_INTERVAL_MS) {
-                            lastScreenshotTime = now;
-                            sendLogWithScreenshot(score, status, issues);
                         }
 
                         // Beep logic is now handled in checkPostureImmediate()

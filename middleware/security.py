@@ -138,22 +138,22 @@ def get_csp_header(nonce: str = None) -> str:
 
         # Scripts: self, Google AdSense, Google Analytics, MediaPipe CDN, and inline for essential functionality
         # 'wasm-unsafe-eval' required for WebAssembly (MediaPipe pose detection)
-        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://pagead2.googlesyndication.com https://www.googletagservices.com https://adservice.google.com https://www.google-analytics.com https://www.googletagmanager.com https://cdn.jsdelivr.net",
+        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://pagead2.googlesyndication.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google https://www.googletagservices.com https://adservice.google.com https://www.google-analytics.com https://www.googletagmanager.com https://cdn.jsdelivr.net",
 
         # Styles: self and inline (needed for dynamic styling)
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
         # Images: self, data URIs (for screenshots), and Google ad images
-        "img-src 'self' data: blob: https://pagead2.googlesyndication.com https://www.google.com https://www.google-analytics.com https://*.googleusercontent.com",
+        "img-src 'self' data: blob: https://pagead2.googlesyndication.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google https://www.google.com https://www.google-analytics.com https://*.googleusercontent.com",
 
         # Fonts: self and Google Fonts
         "font-src 'self' https://fonts.gstatic.com",
 
         # Connect: self, WebSocket, analytics, and MediaPipe model files
-        "connect-src 'self' ws: wss: https://pagead2.googlesyndication.com https://www.google-analytics.com https://cdn.jsdelivr.net https://storage.googleapis.com",
+        "connect-src 'self' ws: wss: https://pagead2.googlesyndication.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google https://www.google-analytics.com https://cdn.jsdelivr.net https://storage.googleapis.com",
 
         # Frames: Google ads only
-        "frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com",
+        "frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google",
 
         # Media: self and blob (for webcam)
         "media-src 'self' blob:",
@@ -225,7 +225,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
     """
 
     # Paths that bypass rate limiting (for static assets)
-    BYPASS_PATHS = {"/static/", "/health"}
+    BYPASS_PATHS = {"/static/", "/health", "/yoga/remote", "/ws/yoga/"}
 
     # Maximum request body size (1MB - sufficient for JSON requests)
     MAX_BODY_SIZE = 1 * 1024 * 1024
@@ -254,10 +254,13 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Request entity too large"}
             )
 
-        # HTTPS enforcement in production
+        # HTTPS enforcement in production (skip for localhost/local IPs)
         if cfg.ENVIRONMENT == "production":
+            host = request.headers.get("host", "").split(":")[0]
+            is_local = host in ["localhost", "127.0.0.1", "0.0.0.0"]
+            
             forwarded_proto = request.headers.get("x-forwarded-proto", "http")
-            if forwarded_proto != "https" and path not in ["/health"]:
+            if forwarded_proto != "https" and path not in ["/health"] and not is_local:
                 # Redirect to HTTPS
                 https_url = str(request.url).replace("http://", "https://", 1)
                 return Response(

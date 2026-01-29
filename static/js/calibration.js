@@ -57,8 +57,9 @@ function connectWS() {
     
     calSocket.onopen = () => {
         startBtn.disabled = false;
-        startBtn.innerText = "Start Calibration";
+        startBtn.innerHTML = '<i data-lucide="target" style="margin-right: 8px;"></i>Start Calibration';
         statusMsg.innerText = "Ready to calibrate";
+        if (window.lucide) window.lucide.createIcons();
     };
 
     calSocket.onmessage = (event) => {

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 150" fill="#7c9a92">
+  <!-- Triangle Pose - Wide stance, torso bent sideways -->
+  <circle cx="90" cy="45" r="10"/> <!-- Head -->
+  <line x1="85" y1="50" x2="55" y2="80" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Torso tilted -->
+  <line x1="70" y1="65" x2="95" y2="25" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Top arm up -->
+  <line x1="55" y1="80" x2="35" y2="120" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Bottom arm down -->
+  <line x1="55" y1="80" x2="25" y2="130" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Left leg -->
+  <line x1="55" y1="80" x2="110" y2="130" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Right leg -->
+  <circle cx="25" cy="135" r="5"/> <!-- Left foot -->
+  <circle cx="110" cy="135" r="5"/> <!-- Right foot -->
+</svg>

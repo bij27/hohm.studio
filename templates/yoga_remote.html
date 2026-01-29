@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
+    <meta name="google-adsense-account" content="ca-pub-8332216835063057">
+    <title>hohm.studio | Remote Control</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <style>
+        :root {
+            --color-bg: #1a1d21;
+            --color-surface: #2a2d32;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #ffffff;
+            --color-text-secondary: #9a9da3;
+            --color-good: #7c9a92;
+            --color-warning: #d4a574;
+            --color-bad: #c97b7b;
+            --radius: 16px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            display: flex;
+            flex-direction: column;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .logo { height: 24px; }
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-warning);
+        }
+        .status-dot.connected { background: var(--color-good); }
+        .status-dot.disconnected { background: var(--color-bad); }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            gap: 16px;
+        }
+
+        /* Match Score Card */
+        .score-card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            text-align: center;
+        }
+        .match-score {
+            font-size: 4rem;
+            font-weight: 200;
+            color: var(--color-warning);
+            line-height: 1;
+        }
+        .match-score.good { color: var(--color-good); }
+        .match-score.bad { color: var(--color-bad); }
+        .match-label {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            margin-top: 8px;
+        }
+        .form-feedback {
+            margin-top: 12px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: inline-block;
+        }
+        .form-feedback.good {
+            background: rgba(124, 154, 146, 0.2);
+            color: var(--color-good);
+        }
+        .form-feedback.warning {
+            background: rgba(212, 165, 116, 0.2);
+            color: var(--color-warning);
+        }
+        .form-feedback.bad {
+            background: rgba(201, 123, 123, 0.2);
+            color: var(--color-bad);
+        }
+
+        /* Timer Card */
+        .timer-card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .timer-group {
+            text-align: center;
+        }
+        .timer-value {
+            font-size: 1.8rem;
+            font-weight: 300;
+            font-variant-numeric: tabular-nums;
+        }
+        .timer-value.counting { color: var(--color-good); }
+        .timer-value.paused { color: var(--color-warning); }
+        .timer-label {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .timer-divider {
+            width: 1px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Pose Card */
+        .pose-card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .pose-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .pose-number {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+        .pose-image-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        .pose-image {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+        }
+        .pose-name {
+            font-size: 1.3rem;
+            font-weight: 400;
+            margin-bottom: 4px;
+        }
+        .pose-sanskrit {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            font-style: italic;
+            margin-bottom: 16px;
+        }
+        .pose-instructions {
+            list-style: none;
+        }
+        .pose-instructions li {
+            padding: 8px 0;
+            padding-left: 20px;
+            position: relative;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .pose-instructions li:last-child {
+            border-bottom: none;
+        }
+        .pose-instructions li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background: var(--color-primary);
+            border-radius: 50%;
+        }
+
+        /* Intro State */
+        .intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            text-align: center;
+            padding: 40px;
+        }
+        .intro-overlay.hidden { display: none; }
+        .intro-pose-image {
+            width: 150px;
+            height: 150px;
+            object-fit: contain;
+            margin-bottom: 20px;
+        }
+        .intro-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+        .intro-message {
+            color: var(--color-text-secondary);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Controls */
+        .controls {
+            padding: 20px;
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            background: var(--color-surface);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .control-row {
+            display: flex;
+            gap: 12px;
+        }
+        .btn {
+            flex: 1;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+            background: var(--color-primary-light);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--color-text);
+        }
+        .btn-secondary:active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .btn-danger {
+            background: rgba(201, 123, 123, 0.2);
+            color: var(--color-bad);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Audio Controls */
+        .audio-card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 16px;
+        }
+        .audio-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .audio-row:last-child {
+            margin-bottom: 0;
+        }
+        .audio-toggle {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .audio-toggle.active {
+            background: var(--color-primary);
+            color: white;
+        }
+        .audio-label-text {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            width: 60px;
+        }
+        .volume-slider {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--color-primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Ambient Track Selector */
+        .ambient-tracks {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .ambient-track {
+            flex: 1;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0.6;
+        }
+        .ambient-track:active {
+            transform: scale(0.95);
+        }
+        .ambient-track.active {
+            background: rgba(124, 154, 146, 0.3);
+            opacity: 1;
+        }
+
+        /* Status Overlays */
+        .status-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            text-align: center;
+            padding: 40px;
+        }
+        .status-overlay.hidden { display: none; }
+        .status-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        .status-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+        .status-message {
+            color: var(--color-text-secondary);
+            max-width: 280px;
+            line-height: 1.6;
+        }
+
+        /* Countdown Overlay */
+        .countdown-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .countdown-overlay.hidden { display: none; }
+        .countdown-number {
+            font-size: 10rem;
+            font-weight: 200;
+            color: var(--color-primary);
+            animation: pulse 1s ease infinite;
+        }
+        .countdown-text {
+            font-size: 1.2rem;
+            color: var(--color-text-secondary);
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        /* Waiting State */
+        .waiting-animation {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(124, 154, 146, 0.2);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- No JavaScript fallback -->
+    <noscript>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fcfaf7; display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; text-align: center;">
+            <div style="max-width: 400px;">
+                <h1 style="color: #2c3333; margin-bottom: 16px;">JavaScript Required</h1>
+                <p style="color: #6b7575;">The remote control requires JavaScript. Please enable JavaScript and refresh.</p>
+            </div>
+        </div>
+    </noscript>
+
+    <!-- Connecting Overlay -->
+    <div class="status-overlay" id="connecting-overlay">
+        <div class="waiting-animation"></div>
+        <div class="status-title">Connecting...</div>
+        <div class="status-message">Syncing with your yoga session</div>
+    </div>
+
+    <!-- Waiting for Session Overlay -->
+    <div class="status-overlay hidden" id="waiting-overlay">
+        <div class="status-icon"><i data-lucide="camera" style="width: 64px; height: 64px; color: var(--color-primary);"></i></div>
+        <div class="status-title">Ready to Start</div>
+        <div class="status-message">Press Start below, then position yourself so your full body is visible in the camera</div>
+        <button class="btn btn-primary" id="waiting-start-btn" style="margin-top: 24px; padding: 18px 48px; font-size: 1.2rem;">
+            <i data-lucide="play" style="margin-right: 8px;"></i>Start Session
+        </button>
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div class="countdown-overlay hidden" id="countdown-overlay">
+        <div class="countdown-number" id="countdown-number">5</div>
+        <div class="countdown-text">Get ready...</div>
+    </div>
+
+    <!-- Intro Overlay (while voice guide speaks) -->
+    <div class="intro-overlay hidden" id="intro-overlay">
+        <div class="waiting-animation"></div>
+        <div class="intro-title">Session Starting...</div>
+        <div class="intro-message">Listen to the guide and prepare for your first pose</div>
+    </div>
+
+    <!-- Get Into Position Overlay -->
+    <div class="intro-overlay hidden" id="position-overlay">
+        <img class="intro-pose-image" id="position-pose-image" src="" alt="Pose">
+        <div class="intro-title" id="position-pose-name">Loading...</div>
+        <div class="intro-message">Get into position. Timer starts when you match the pose.</div>
+    </div>
+
+    <!-- Transition Overlay (between poses) -->
+    <div class="intro-overlay hidden" id="transition-overlay">
+        <div class="waiting-animation"></div>
+        <div class="intro-title"><i data-lucide="wind"></i> Take a breath</div>
+        <div class="intro-message">Relax and prepare for the next pose</div>
+    </div>
+
+    <!-- Disconnected Overlay -->
+    <div class="status-overlay hidden" id="disconnected-overlay">
+        <div class="status-icon"><i data-lucide="wifi-off" style="width: 64px; height: 64px; color: var(--color-bad);"></i></div>
+        <div class="status-title">Session Ended</div>
+        <div class="status-message">The desktop session has been disconnected</div>
+        <button class="btn btn-primary" style="margin-top: 24px; width: auto; padding: 14px 32px;" onclick="location.reload()">
+            <i data-lucide="refresh-cw" style="margin-right: 8px;"></i>Reconnect
+        </button>
+    </div>
+
+    <header>
+        <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo">
+        <div class="connection-status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Connecting</span>
+        </div>
+    </header>
+
+    <main id="main-content" style="display: none;">
+        <div class="score-card">
+            <div class="match-score" id="match-score">--%</div>
+            <div class="match-label">Pose Match</div>
+            <div class="form-feedback warning" id="form-feedback">Waiting...</div>
+        </div>
+
+        <div class="timer-card">
+            <div class="timer-group">
+                <div class="timer-value" id="pose-timer">0:30</div>
+                <div class="timer-label">Pose Time</div>
+            </div>
+            <div class="timer-divider"></div>
+            <div class="timer-group">
+                <div class="timer-value" id="session-timer">00:00</div>
+                <div class="timer-label">Session</div>
+            </div>
+        </div>
+
+        <div class="pose-card">
+            <div class="pose-header">
+                <span class="pose-number" id="pose-number">Pose 1 of 8</span>
+            </div>
+            <div class="pose-image-container">
+                <img class="pose-image" id="pose-image" src="/static/images/poses/tree.svg" alt="Pose">
+            </div>
+            <div class="pose-name" id="pose-name">Loading...</div>
+            <div class="pose-sanskrit" id="pose-sanskrit"></div>
+            <ul class="pose-instructions" id="pose-instructions">
+                <li>Preparing session...</li>
+            </ul>
+        </div>
+
+        <!-- Audio Controls -->
+        <div class="audio-card">
+            <div class="audio-row">
+                <button class="audio-toggle active" id="voice-toggle">
+                    <i data-lucide="volume-2"></i>
+                </button>
+                <span class="audio-label-text">Voice</span>
+                <input type="range" class="volume-slider" id="voice-volume" min="0" max="100" value="80">
+            </div>
+            <div class="audio-row">
+                <button class="audio-toggle" id="ambient-toggle">
+                    <i data-lucide="music"></i>
+                </button>
+                <span class="audio-label-text">Ambient</span>
+                <input type="range" class="volume-slider" id="ambient-volume" min="0" max="100" value="30">
+            </div>
+            <!-- Ambient Track Selector -->
+            <div class="ambient-tracks" id="ambient-tracks">
+                <button class="ambient-track active" data-track="permafrost" title="Permafrost"><i data-lucide="snowflake"></i></button>
+                <button class="ambient-track" data-track="reverie" title="Reverie"><i data-lucide="cloud"></i></button>
+                <button class="ambient-track" data-track="borealis" title="Borealis"><i data-lucide="sparkles"></i></button>
+                <button class="ambient-track" data-track="petrichor" title="Petrichor"><i data-lucide="droplets"></i></button>
+            </div>
+        </div>
+    </main>
+
+    <div class="controls" id="controls" style="display: none;">
+        <div class="control-row">
+            <button class="btn btn-primary" id="start-btn" style="display: none;">
+                <i data-lucide="play"></i>
+                Start
+            </button>
+            <button class="btn btn-primary" id="pause-btn" style="display: none;">
+                <i data-lucide="pause"></i>
+                Pause
+            </button>
+            <button class="btn btn-primary" id="resume-btn" style="display: none;">
+                <i data-lucide="play"></i>
+                Resume
+            </button>
+            <button class="btn btn-danger" id="end-btn">
+                <i data-lucide="x"></i>
+                End
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const roomCode = "{{ code }}";
+        let ws = null;
+        let currentState = {};
+
+        // DOM Elements
+        const elements = {
+            connectingOverlay: document.getElementById('connecting-overlay'),
+            waitingOverlay: document.getElementById('waiting-overlay'),
+            countdownOverlay: document.getElementById('countdown-overlay'),
+            countdownNumber: document.getElementById('countdown-number'),
+            introOverlay: document.getElementById('intro-overlay'),
+            positionOverlay: document.getElementById('position-overlay'),
+            positionPoseImage: document.getElementById('position-pose-image'),
+            positionPoseName: document.getElementById('position-pose-name'),
+            transitionOverlay: document.getElementById('transition-overlay'),
+            disconnectedOverlay: document.getElementById('disconnected-overlay'),
+            mainContent: document.getElementById('main-content'),
+            controls: document.getElementById('controls'),
+            statusDot: document.getElementById('status-dot'),
+            statusText: document.getElementById('status-text'),
+            matchScore: document.getElementById('match-score'),
+            formFeedback: document.getElementById('form-feedback'),
+            poseTimer: document.getElementById('pose-timer'),
+            sessionTimer: document.getElementById('session-timer'),
+            poseNumber: document.getElementById('pose-number'),
+            poseImage: document.getElementById('pose-image'),
+            poseName: document.getElementById('pose-name'),
+            poseSanskrit: document.getElementById('pose-sanskrit'),
+            poseInstructions: document.getElementById('pose-instructions'),
+            startBtn: document.getElementById('start-btn'),
+            pauseBtn: document.getElementById('pause-btn'),
+            resumeBtn: document.getElementById('resume-btn'),
+            endBtn: document.getElementById('end-btn')
+        };
+
+        let connectionTimeout = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+        const CONNECTION_TIMEOUT_MS = 15000;  // 15 second timeout
+        let lastActivityTime = Date.now();
+
+        function connect() {
+            // Clear any existing timeout
+            if (connectionTimeout) {
+                clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/yoga/remote/${roomCode}`);
+
+            // Set connection timeout
+            connectionTimeout = setTimeout(() => {
+                if (ws && ws.readyState === WebSocket.CONNECTING) {
+                    console.log('[WS] Connection timeout');
+                    ws.close();
+                    handleConnectionTimeout();
+                }
+            }, CONNECTION_TIMEOUT_MS);
+
+            ws.onopen = () => {
+                clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+                reconnectAttempts = 0;
+                lastActivityTime = Date.now();
+                setConnectionStatus('connected');
+            };
+
+            ws.onclose = () => {
+                clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+                setConnectionStatus('disconnected');
+
+                // Try to reconnect if we haven't exceeded max attempts
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    reconnectAttempts++;
+                    console.log(`[WS] Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                    setTimeout(connect, 2000 * reconnectAttempts);  // Exponential backoff
+                } else {
+                    showOverlay('disconnected');
+                    elements.disconnectedOverlay.querySelector('.status-title').textContent = 'Connection Lost';
+                    elements.disconnectedOverlay.querySelector('.status-message').textContent = 'Could not reconnect. Please check your connection and refresh.';
+                }
+            };
+
+            ws.onerror = () => setConnectionStatus('disconnected');
+
+            ws.onmessage = (event) => {
+                lastActivityTime = Date.now();
+                const message = JSON.parse(event.data);
+                handleMessage(message);
+            };
+        }
+
+        function handleConnectionTimeout() {
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                reconnectAttempts++;
+                console.log(`[WS] Timeout reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                setTimeout(connect, 2000);
+            } else {
+                showOverlay('disconnected');
+                elements.disconnectedOverlay.querySelector('.status-title').textContent = 'Connection Failed';
+                elements.disconnectedOverlay.querySelector('.status-message').textContent = 'Could not connect to the session. Check your internet and try refreshing.';
+            }
+        }
+
+        // Handle phone sleep/wake - check connection when page becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                // Page is now visible (phone woke up)
+                const timeSinceActivity = Date.now() - lastActivityTime;
+
+                // If more than 30 seconds since last activity, connection may be stale
+                if (timeSinceActivity > 30000) {
+                    console.log('[VISIBILITY] Page visible after ' + Math.round(timeSinceActivity/1000) + 's - checking connection');
+
+                    // Test if connection is still alive
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        // Send a ping to check connection
+                        try {
+                            ws.send(JSON.stringify({ type: 'ping' }));
+                        } catch (e) {
+                            console.log('[WS] Connection stale, reconnecting');
+                            reconnectAttempts = 0;
+                            connect();
+                        }
+                    } else {
+                        // Connection is closed, try to reconnect
+                        reconnectAttempts = 0;
+                        connect();
+                    }
+                }
+            }
+        });
+
+        function setConnectionStatus(status) {
+            elements.statusDot.className = 'status-dot ' + status;
+            elements.statusText.textContent = status === 'connected' ? 'Connected' :
+                                              status === 'disconnected' ? 'Disconnected' : 'Connecting';
+        }
+
+        function showOverlay(name) {
+            // Hide all overlays
+            elements.connectingOverlay.classList.add('hidden');
+            elements.waitingOverlay.classList.add('hidden');
+            elements.countdownOverlay.classList.add('hidden');
+            elements.introOverlay.classList.add('hidden');
+            elements.positionOverlay.classList.add('hidden');
+            elements.transitionOverlay.classList.add('hidden');
+            elements.disconnectedOverlay.classList.add('hidden');
+            elements.mainContent.style.display = 'none';
+            elements.controls.style.display = 'none';
+
+            // Show specific overlay or main content
+            switch (name) {
+                case 'connecting':
+                    elements.connectingOverlay.classList.remove('hidden');
+                    break;
+                case 'waiting':
+                    elements.waitingOverlay.classList.remove('hidden');
+                    elements.controls.style.display = 'block';
+                    elements.startBtn.style.display = 'flex';
+                    elements.pauseBtn.style.display = 'none';
+                    elements.resumeBtn.style.display = 'none';
+                    break;
+                case 'countdown':
+                    elements.countdownOverlay.classList.remove('hidden');
+                    break;
+                case 'intro':
+                    elements.introOverlay.classList.remove('hidden');
+                    break;
+                case 'instructions':
+                    // During instructions, show the position overlay with "Listen" message
+                    elements.positionOverlay.classList.remove('hidden');
+                    break;
+                case 'positioning':
+                    elements.positionOverlay.classList.remove('hidden');
+                    break;
+                case 'transition':
+                    elements.transitionOverlay.classList.remove('hidden');
+                    break;
+                case 'disconnected':
+                    elements.disconnectedOverlay.classList.remove('hidden');
+                    break;
+                case 'active':
+                case 'paused':
+                    elements.mainContent.style.display = 'flex';
+                    elements.controls.style.display = 'block';
+                    elements.startBtn.style.display = 'none';
+                    elements.pauseBtn.style.display = name === 'active' ? 'flex' : 'none';
+                    elements.resumeBtn.style.display = name === 'paused' ? 'flex' : 'none';
+                    break;
+            }
+        }
+
+        function handleMessage(message) {
+            console.log('Received:', message);
+
+            switch (message.type) {
+                case 'state_sync':
+                    currentState = message.state;
+                    updateUI();
+                    break;
+
+                case 'desktop_connected':
+                    // Desktop reconnected
+                    break;
+
+                case 'desktop_disconnected':
+                    showOverlay('disconnected');
+                    break;
+
+                case 'pose_change':
+                    if (message.pose) {
+                        updatePoseDisplay(message.pose, message.index);
+                    }
+                    break;
+            }
+        }
+
+        function updateUI() {
+            const state = currentState;
+
+            // Update status-based view
+            switch (state.status) {
+                case 'waiting':
+                case 'calibrating':
+                    showOverlay('waiting');
+                    break;
+                case 'countdown':
+                    showOverlay('countdown');
+                    if (state.countdownValue) {
+                        elements.countdownNumber.textContent = state.countdownValue;
+                    }
+                    break;
+                case 'intro':
+                    showOverlay('intro');
+                    break;
+                case 'instructions':
+                    showOverlay('instructions');
+                    break;
+                case 'positioning':
+                    showOverlay('positioning');
+                    // Update positioning overlay with pose info
+                    if (state.currentPose) {
+                        elements.positionPoseImage.src = state.currentPose.image || '/static/images/poses/tree.svg';
+                        elements.positionPoseName.textContent = state.currentPose.name || 'Get Ready';
+                    }
+                    break;
+                case 'transition':
+                    showOverlay('transition');
+                    break;
+                case 'active':
+                    showOverlay('active');
+                    break;
+                case 'paused':
+                    showOverlay('paused');
+                    break;
+                case 'complete':
+                    showOverlay('disconnected');
+                    elements.disconnectedOverlay.querySelector('.status-title').textContent = 'Session Complete!';
+                    elements.disconnectedOverlay.querySelector('.status-message').textContent = 'Great work on your yoga practice today.';
+                    break;
+            }
+
+            // Update match score
+            if (state.matchScore !== undefined) {
+                const score = Math.round(state.matchScore);
+                elements.matchScore.textContent = score + '%';
+                elements.matchScore.className = 'match-score ' +
+                    (score >= 45 ? 'good' : score >= 25 ? '' : 'bad');
+
+                // Update form feedback based on 4-tier system (matching desktop thresholds)
+                if (score >= 65) {
+                    elements.formFeedback.innerHTML = '<i data-lucide="sparkles"></i> Perfect!';
+                    elements.formFeedback.className = 'form-feedback good';
+                } else if (score >= 45) {
+                    elements.formFeedback.innerHTML = '<i data-lucide="thumbs-up"></i> Good - Timer running';
+                    elements.formFeedback.className = 'form-feedback good';
+                } else if (score >= 25) {
+                    elements.formFeedback.innerHTML = '<i data-lucide="pause-circle"></i> Adjust - Timer paused';
+                    elements.formFeedback.className = 'form-feedback warning';
+                } else {
+                    elements.formFeedback.innerHTML = '<i data-lucide="alert-circle"></i> Adjust position';
+                    elements.formFeedback.className = 'form-feedback bad';
+                }
+                lucide.createIcons();
+            }
+
+            // Update timers
+            if (state.poseTimeRemaining !== undefined) {
+                // Show appropriate timer text based on state
+                if (state.status === 'active' && !state.poseTimerStarted) {
+                    // Waiting for user to get into position
+                    elements.poseTimer.textContent = 'Get Ready';
+                    elements.poseTimer.className = 'timer-value paused';
+                } else {
+                    elements.poseTimer.textContent = formatPoseTime(state.poseTimeRemaining);
+                    elements.poseTimer.className = 'timer-value ' + (state.isFormGood ? 'counting' : 'paused');
+                }
+            }
+
+            if (state.sessionElapsed !== undefined) {
+                elements.sessionTimer.textContent = formatTime(state.sessionElapsed);
+            }
+
+            // Update pose info
+            if (state.currentPose) {
+                updatePoseDisplay(state.currentPose, state.poseIndex);
+            }
+
+            // Update pose count
+            if (state.totalPoses) {
+                elements.poseNumber.textContent = `Pose ${(state.poseIndex || 0) + 1} of ${state.totalPoses}`;
+            }
+        }
+
+        function updatePoseDisplay(pose, index) {
+            elements.poseName.textContent = pose.name || 'Loading...';
+            elements.poseSanskrit.textContent = pose.sanskrit || '';
+            elements.poseNumber.textContent = `Pose ${(index || 0) + 1} of ${currentState.totalPoses || '?'}`;
+
+            // Update pose image
+            if (pose.image) {
+                elements.poseImage.src = pose.image;
+            }
+
+            if (pose.instructions && pose.instructions.length > 0) {
+                elements.poseInstructions.innerHTML = pose.instructions
+                    .map(inst => `<li>${inst}</li>`)
+                    .join('');
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function formatPoseTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.max(0, seconds % 60);
+            if (mins > 0) {
+                return `${mins}:${String(secs).padStart(2, '0')}`;
+            }
+            return `0:${String(secs).padStart(2, '0')}`;
+        }
+
+        function sendCommand(command) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'command', command: command }));
+            } else if (!ws || ws.readyState === WebSocket.CLOSED) {
+                // Try to reconnect if not connected
+                connect();
+            }
+        }
+
+        // Button handlers
+        elements.startBtn.addEventListener('click', () => sendCommand('start'));
+        elements.pauseBtn.addEventListener('click', () => sendCommand('pause'));
+        elements.resumeBtn.addEventListener('click', () => sendCommand('resume'));
+        elements.endBtn.addEventListener('click', () => {
+            if (confirm('End this session?')) {
+                sendCommand('end');
+            }
+        });
+
+        // Waiting screen start button
+        document.getElementById('waiting-start-btn').addEventListener('click', () => sendCommand('start'));
+
+        // Audio controls
+        const voiceToggle = document.getElementById('voice-toggle');
+        const ambientToggle = document.getElementById('ambient-toggle');
+        const voiceVolume = document.getElementById('voice-volume');
+        const ambientVolume = document.getElementById('ambient-volume');
+
+        voiceToggle.addEventListener('click', () => {
+            voiceToggle.classList.toggle('active');
+            sendCommand('toggle_voice');
+        });
+
+        ambientToggle.addEventListener('click', () => {
+            ambientToggle.classList.toggle('active');
+            sendCommand('toggle_ambient');
+        });
+
+        voiceVolume.addEventListener('input', (e) => {
+            sendAudioCommand('voice_volume', e.target.value);
+        });
+
+        ambientVolume.addEventListener('input', (e) => {
+            sendAudioCommand('ambient_volume', e.target.value);
+        });
+
+        function sendAudioCommand(type, value) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: type, value: parseInt(value) }));
+            }
+        }
+
+        // Ambient track selection
+        document.querySelectorAll('.ambient-track').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const trackId = btn.dataset.track;
+                // Update UI
+                document.querySelectorAll('.ambient-track').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                // Send to desktop
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ambient_track', track: trackId }));
+                }
+            });
+        });
+
+        // Note: touch-action: manipulation in CSS prevents double-tap zoom
+
+        // Connect on load
+        connect();
+    </script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

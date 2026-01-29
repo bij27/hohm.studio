@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-8332216835063057">
+    <title>hohm.studio | Yoga Session</title>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
+
+    <!-- MediaPipe -->
+    <script type="module">
+        import { PoseLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+        window.tasksVision = { PoseLandmarker, FilesetResolver, DrawingUtils };
+    </script>
+
+    <!-- Lucide Icons (SVG-based, no font loading issues) -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+        :root {
+            --color-bg: #fcfaf7;
+            --color-surface: #ffffff;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #2c3333;
+            --color-text-secondary: #6b7575;
+            --color-good: #7c9a92;
+            --color-warning: #d4a574;
+            --color-bad: #c97b7b;
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .logo-img { height: 32px; width: auto; }
+        .session-timer {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: var(--color-primary);
+            font-variant-numeric: tabular-nums;
+        }
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(124, 154, 146, 0.1);
+            color: var(--color-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        .btn-icon:hover { background: rgba(124, 154, 146, 0.2); }
+        .btn-icon.active { background: var(--color-primary); color: white; }
+
+        /* Main Layout */
+        main {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 70px);
+        }
+
+        /* Video Section */
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .video-wrapper {
+            position: relative;
+            background: #1a1d21;
+            border-radius: var(--radius);
+            overflow: hidden;
+            flex: 1;
+            min-height: 400px;
+            transition: box-shadow 0.5s ease, border-color 0.5s ease;
+            border: 3px solid #a8c5be;
+        }
+        #webcam, #landmark-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .mirrored { transform: scaleX(-1); }
+        #landmark-overlay { z-index: 10; }
+
+        /* Pose Match Indicator - Upper Right */
+        .match-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 24px;
+            border-radius: 30px;
+            z-index: 20;
+            text-align: center;
+        }
+        .match-score {
+            font-size: 2rem;
+            font-weight: 300;
+            color: white;
+        }
+        .match-label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Pose Timer */
+        .pose-timer {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 20px;
+            border-radius: 20px;
+            z-index: 20;
+            font-size: 1.2rem;
+            color: white;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Feedback Message */
+        .feedback-message {
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-warning);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 20;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        /* Progress Bar */
+        .session-progress {
+            height: 6px;
+            background: rgba(124, 154, 146, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .session-progress-bar {
+            height: 100%;
+            background: var(--color-primary);
+            transition: width 0.5s ease;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        /* Current Pose Card */
+        .current-pose h2 {
+            font-weight: 400;
+            font-size: 1.4rem;
+            margin-bottom: 4px;
+        }
+        .current-pose .sanskrit {
+            color: var(--color-text-secondary);
+            font-style: italic;
+            margin-bottom: 16px;
+        }
+        .pose-instructions {
+            list-style: none;
+        }
+        .pose-instructions li {
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+        .pose-instructions li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            background: var(--color-primary);
+            border-radius: 50%;
+        }
+
+        /* Pose Queue */
+        .pose-queue h3 {
+            font-weight: 400;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        .queue-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .queue-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+        .queue-item.current {
+            background: rgba(124, 154, 146, 0.15);
+            border-left: 3px solid var(--color-primary);
+        }
+        .queue-item.completed {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        .queue-duration {
+            color: var(--color-text-secondary);
+            font-size: 0.8rem;
+        }
+
+        /* Controls */
+        .session-controls {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            flex: 1;
+            border: none;
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+        .btn-primary:hover { background: var(--color-primary-light); }
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--color-bad);
+            color: var(--color-bad);
+        }
+        .btn-secondary:hover { background: rgba(201, 123, 123, 0.1); }
+
+        /* Audio Controls */
+        .audio-card h3 {
+            font-weight: 400;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+        .audio-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .audio-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 110px;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+        .audio-toggle {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(124, 154, 146, 0.1);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .audio-toggle:hover {
+            background: rgba(124, 154, 146, 0.2);
+        }
+        .audio-toggle.active {
+            background: var(--color-primary);
+            color: white;
+        }
+        .volume-slider {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(124, 154, 146, 0.3);
+            border-radius: 2px;
+            outline: none;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--color-primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .ambient-tracks {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .ambient-track {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(124, 154, 146, 0.1);
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0.6;
+        }
+        .ambient-track:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+        .ambient-track.active {
+            background: rgba(124, 154, 146, 0.25);
+            opacity: 1;
+        }
+
+        /* Form Status - Centered at top */
+        .form-status {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            z-index: 20;
+            font-size: 0.9rem;
+            color: #d4a574;
+            text-align: center;
+        }
+
+        /* Loading State */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--color-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(124, 154, 146, 0.2);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            margin-top: 20px;
+            color: var(--color-text-secondary);
+        }
+
+        /* Calibration Overlay */
+        .calibration-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .calibration-content {
+            text-align: center;
+            color: white;
+            max-width: 400px;
+            padding: 40px;
+        }
+        .calibration-content h2 {
+            font-size: 1.8rem;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+        .calibration-content p {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 30px;
+        }
+        .calibration-status {
+            font-size: 1.2rem;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            color: #d4a574;
+        }
+        .start-btn {
+            padding: 16px 40px;
+            font-size: 1.1rem;
+            display: block;
+            margin: 0 auto;
+        }
+        .start-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .room-code-display {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .room-code-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+        }
+        .room-code {
+            font-size: 3rem;
+            font-weight: 300;
+            letter-spacing: 12px;
+            color: var(--color-primary);
+            font-variant-numeric: tabular-nums;
+        }
+        .room-code-hint {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 12px;
+        }
+
+        /* Countdown Overlay */
+        .countdown-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .countdown-number {
+            font-size: 8rem;
+            font-weight: 200;
+            color: var(--color-primary);
+            animation: pulse 1s ease infinite;
+        }
+        .countdown-text {
+            font-size: 1.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 20px;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        /* Mobile */
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .video-wrapper { min-height: 300px; }
+            .sidebar { max-height: 50vh; }
+        }
+        @media (max-width: 600px) {
+            header { padding: 10px 16px; }
+            main { padding: 12px; gap: 12px; }
+            .card { padding: 16px; }
+            .session-timer { font-size: 1.2rem; }
+        }
+
+        /* Consent Modal */
+        #consent-overlay, #consent-declined {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: var(--color-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .consent-modal {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            max-width: 520px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 32px;
+            text-align: center;
+        }
+
+        .consent-logo { height: 56px; width: auto; margin-bottom: 16px; }
+        .consent-modal h1 { color: var(--color-text); margin-bottom: 8px; font-weight: 400; font-size: 1.5rem; }
+        .consent-tagline { color: var(--color-text-secondary); font-size: 0.95rem; }
+
+        .consent-body { text-align: left; margin: 20px 0; }
+        .consent-body h2 { font-size: 1rem; font-weight: 500; margin-bottom: 12px; color: var(--color-text); }
+        .consent-body ul { list-style: disc; padding-left: 20px; margin-bottom: 16px; }
+        .consent-body li { padding: 5px 0; color: var(--color-text); font-size: 0.9rem; }
+
+        .consent-disclaimer {
+            background: rgba(212, 165, 116, 0.15);
+            border-left: 3px solid var(--color-accent);
+            border-radius: 8px;
+            padding: 14px;
+            margin: 16px 0;
+            text-align: left;
+        }
+        .consent-disclaimer h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-accent);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .consent-disclaimer p {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+            margin-bottom: 6px;
+        }
+        .consent-disclaimer p:last-child { margin-bottom: 0; }
+
+        .consent-privacy {
+            background: rgba(124, 154, 146, 0.1);
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 16px;
+            text-align: center;
+        }
+        .consent-privacy p { font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 6px; }
+        .consent-privacy a { color: var(--color-primary); text-decoration: none; font-weight: 500; font-size: 0.85rem; }
+        .consent-privacy a:hover { text-decoration: underline; }
+
+        .consent-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .consent-actions .btn-primary { width: 100%; justify-content: center; }
+        .consent-actions .btn-decline {
+            background: transparent;
+            color: var(--color-text-secondary);
+            border: 1px solid rgba(124, 154, 146, 0.3);
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-family: inherit;
+            transition: 0.3s;
+        }
+        .consent-actions .btn-decline:hover {
+            background: rgba(124, 154, 146, 0.05);
+            border-color: var(--color-primary);
+        }
+
+        #consent-declined .consent-body { text-align: center; }
+        #consent-declined .consent-body p { color: var(--color-text-secondary); margin-bottom: 10px; font-size: 0.95rem; }
+
+        @media (max-width: 600px) {
+            .consent-modal { padding: 24px 20px; max-height: 85vh; }
+            .consent-logo { height: 48px; }
+            .consent-modal h1 { font-size: 1.3rem; }
+            .consent-body li { font-size: 0.85rem; }
+            .consent-disclaimer p { font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- No JavaScript fallback -->
+    <noscript>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fcfaf7; display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; text-align: center;">
+            <div style="max-width: 400px;">
+                <h1 style="color: #2c3333; margin-bottom: 16px;">JavaScript Required</h1>
+                <p style="color: #6b7575;">hohm.studio yoga sessions require JavaScript for pose detection and voice guidance. Please enable JavaScript and refresh the page.</p>
+            </div>
+        </div>
+    </noscript>
+
+    <!-- Old browser detection -->
+    <script>
+        (function() {
+            var hasES6 = typeof Symbol !== 'undefined' && typeof Promise !== 'undefined';
+            var hasMediaDevices = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+            var hasCanvas = !!document.createElement('canvas').getContext;
+            var hasAudioContext = window.AudioContext || window.webkitAudioContext;
+
+            if (!hasES6 || !hasMediaDevices || !hasCanvas || !hasAudioContext) {
+                document.body.innerHTML = '<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fcfaf7; display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; text-align: center;">' +
+                    '<div style="max-width: 400px;">' +
+                    '<h1 style="color: #2c3333; margin-bottom: 16px;">Browser Not Supported</h1>' +
+                    '<p style="color: #6b7575;">Yoga sessions require a modern browser with camera and audio support. Please update your browser or try Chrome, Firefox, Safari, or Edge.</p>' +
+                    '</div></div>';
+            }
+        })();
+    </script>
+
+    <!-- Consent Modal -->
+    <div id="consent-overlay">
+        <div class="consent-modal">
+            <div class="consent-header">
+                <img src="/static/images/logo.png?v=4" alt="hohm.studio" class="consent-logo">
+                <h1>Welcome to Yoga Sessions</h1>
+                <p class="consent-tagline">AI-guided yoga with real-time pose feedback</p>
+            </div>
+
+            <div class="consent-body">
+                <h2>How it works</h2>
+                <ul>
+                    <li>Uses your webcam to analyze poses in real-time</li>
+                    <li>All AI processing happens locally in your browser</li>
+                    <li>Voice guidance helps you through each pose</li>
+                    <li>No video or images are ever uploaded</li>
+                </ul>
+
+                <div class="consent-disclaimer">
+                    <h3><i data-lucide="alert-triangle" style="width: 16px; height: 16px;"></i> Health & Safety Disclaimer</h3>
+                    <p><strong>This app does not provide medical advice.</strong> The content is for informational and educational purposes only.</p>
+                    <p>These exercises are designed to be gentle and should not cause strain. However, if you experience any pain, discomfort, or have existing health conditions, <strong>please consult a healthcare professional</strong> before continuing.</p>
+                    <p>By using this app, you acknowledge that you exercise at your own risk and hohm.studio is not liable for any injuries that may occur.</p>
+                </div>
+
+                <div class="consent-privacy">
+                    <p>By using this app, you agree to our privacy practices and health disclaimer.</p>
+                    <a href="/privacy" target="_blank">Read full Privacy Policy</a>
+                </div>
+            </div>
+
+            <div class="consent-actions">
+                <button id="consent-agree" class="btn btn-primary"><i data-lucide="check-circle" style="margin-right: 8px;"></i>I Understand & Agree</button>
+                <button id="consent-decline" class="btn-decline">Decline</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="consent-declined" style="display: none;">
+        <div class="consent-modal">
+            <div class="consent-header">
+                <img src="/static/images/logo.png?v=4" alt="hohm.studio" class="consent-logo">
+                <h1>Access Required</h1>
+            </div>
+            <div class="consent-body">
+                <p>You must accept the terms and health disclaimer to use yoga sessions.</p>
+                <p>We respect your decision. Refresh the page if you change your mind.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Preparing your session...</div>
+    </div>
+
+    <!-- Calibration Overlay -->
+    <div class="calibration-overlay" id="calibration-overlay" style="display: none;">
+        <div class="calibration-content">
+            <h2>Position Yourself</h2>
+            <p>Stand back so your full body is visible in the camera.</p>
+            <div class="calibration-status" id="calibration-status">Detecting body...</div>
+            <button class="btn btn-primary start-btn" id="start-btn" disabled style="display: none;"><i data-lucide="play" style="margin-right: 8px;"></i>Start Session</button>
+
+            <div class="room-code-display" id="room-code-display" style="display: none;">
+                <div class="room-code-label">Phone Remote Code:</div>
+                <div class="room-code" id="room-code">----</div>
+                <div class="room-code-hint">Visit hohm.studio/yoga/remote on your phone</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div class="countdown-overlay" id="countdown-overlay" style="display: none;">
+        <div class="countdown-number" id="countdown-number">5</div>
+        <div class="countdown-text">Get ready...</div>
+    </div>
+
+    <header>
+        <a href="/yoga">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <div class="session-timer" id="session-timer">00:00</div>
+        <div class="header-controls">
+            <button class="btn-icon" id="sound-toggle" title="Toggle voice guidance">
+                <i data-lucide="volume-2" style="font-size: 1.1rem;"></i>
+            </button>
+            <button class="btn-icon" id="music-toggle" title="Toggle ambient music">
+                <i data-lucide="music" style="font-size: 1.1rem;"></i>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div class="video-section">
+            <div class="video-wrapper">
+                <video id="webcam" autoplay playsinline class="mirrored"></video>
+                <canvas id="landmark-overlay" class="mirrored"></canvas>
+
+                <div class="match-indicator">
+                    <div class="match-score" id="match-score">--%</div>
+                    <div class="match-label">Pose Match</div>
+                </div>
+
+                <div class="feedback-message" id="feedback-message"></div>
+
+                <div class="form-status" id="form-status">Match the target pose</div>
+
+                <div class="pose-timer" id="pose-timer">0:30</div>
+            </div>
+
+            <div class="session-progress">
+                <div class="session-progress-bar" id="session-progress" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="card current-pose">
+                <div class="pose-image-container" style="text-align: center; margin-bottom: 12px;">
+                    <img id="pose-reference-image" src="/static/images/poses/tree.svg" alt="Pose Reference" style="width: 80px; height: 80px; object-fit: contain;">
+                </div>
+                <h2 id="current-pose-name">Loading...</h2>
+                <div class="sanskrit" id="current-pose-sanskrit"></div>
+                <ul class="pose-instructions" id="pose-instructions">
+                    <li>Preparing your session...</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>Up Next</h3>
+                <div class="queue-list" id="pose-queue">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <div class="card audio-card">
+                <h3>Audio Settings</h3>
+
+                <!-- Voice Guide -->
+                <div class="audio-row">
+                    <div class="audio-label">
+                        <button class="audio-toggle active" id="voice-toggle" title="Toggle voice guide">
+                            <i data-lucide="volume-2"></i>
+                        </button>
+                        <span>Voice Guide</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="voice-volume" min="0" max="100" value="80">
+                </div>
+
+                <!-- Ambient Sound -->
+                <div class="audio-row">
+                    <div class="audio-label">
+                        <button class="audio-toggle" id="ambient-toggle" title="Toggle ambient sound">
+                            <i data-lucide="music"></i>
+                        </button>
+                        <span>Ambient</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="ambient-volume" min="0" max="100" value="30">
+                </div>
+
+                <!-- Ambient Track Selector -->
+                <div class="ambient-tracks" id="ambient-tracks">
+                    <button class="ambient-track active" data-track="permafrost" title="Permafrost - Meditative strings"><i data-lucide="snowflake"></i></button>
+                    <button class="ambient-track" data-track="reverie" title="Reverie - Piano and strings"><i data-lucide="cloud"></i></button>
+                    <button class="ambient-track" data-track="borealis" title="Borealis - Ethereal ambient"><i data-lucide="sparkles"></i></button>
+                    <button class="ambient-track" data-track="petrichor" title="Petrichor - Warm synth"><i data-lucide="droplets"></i></button>
+                </div>
+                <div class="audio-attribution" style="font-size: 0.7rem; color: var(--color-text-secondary); margin-top: 8px; text-align: center;">
+                    Music by <a href="https://www.scottbuckley.com.au" target="_blank" style="color: var(--color-primary);">Scott Buckley</a> (CC-BY 4.0)
+                </div>
+            </div>
+
+            <!-- Hidden Audio Elements -->
+            <audio id="voice-audio" preload="auto"></audio>
+            <audio id="ambient-audio" loop preload="auto" crossorigin="anonymous"></audio>
+
+            <div class="session-controls">
+                <button class="btn btn-primary" id="pause-btn"><i data-lucide="pause" style="margin-right: 6px;"></i>Pause</button>
+                <button class="btn btn-secondary" id="end-btn"><i data-lucide="x" style="margin-right: 6px;"></i>End Session</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Consent management
+        const CONSENT_KEY = 'hohm_yoga_consent';
+        const CONSENT_VERSION = 1;
+
+        function hasValidConsent() {
+            try {
+                const consent = JSON.parse(localStorage.getItem(CONSENT_KEY));
+                return consent && consent.accepted && consent.version === CONSENT_VERSION;
+            } catch {
+                return false;
+            }
+        }
+
+        function saveConsent(accepted) {
+            localStorage.setItem(CONSENT_KEY, JSON.stringify({
+                accepted: accepted,
+                version: CONSENT_VERSION,
+                timestamp: new Date().toISOString()
+            }));
+        }
+
+        function initConsentModal() {
+            const overlay = document.getElementById('consent-overlay');
+            const declined = document.getElementById('consent-declined');
+            const agreeBtn = document.getElementById('consent-agree');
+            const declineBtn = document.getElementById('consent-decline');
+
+            if (hasValidConsent()) {
+                overlay.style.display = 'none';
+                return;
+            }
+
+            overlay.style.display = 'flex';
+
+            agreeBtn.addEventListener('click', () => {
+                saveConsent(true);
+                overlay.style.display = 'none';
+                lucide.createIcons();
+            });
+
+            declineBtn.addEventListener('click', () => {
+                overlay.style.display = 'none';
+                declined.style.display = 'flex';
+            });
+        }
+
+        // Initialize consent modal immediately
+        initConsentModal();
+        // Initialize Lucide icons for consent modal
+        lucide.createIcons();
+    </script>
+    <script src="/static/js/yoga-session.js?v=15"></script>
+    <script>
+        // Re-initialize Lucide icons after yoga-session.js loads
+        lucide.createIcons();
+    </script>
+</body>
+</html>

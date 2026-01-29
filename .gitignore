@@ -6,24 +6,70 @@ __pycache__/
 venv/
 ENV/
 env/
+*.egg-info/
+dist/
+build/
 
-# Environment (IMPORTANT: Never commit .env with secrets)
+# Environment (CRITICAL: Never commit .env with secrets)
 .env
+.env.local
+.env.*.local
 .python-version
 
 # Database (local development only)
 *.db
 *.sqlite3
+*.sqlite
 
-# IDEs
+# User Data (CRITICAL: Contains personal/biometric data)
+data/
+!data/.gitkeep
+
+# Generated audio cache (TTS output)
+static/audio/voice/
+
+# IDEs and Editors
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-*
+.claude/
 
 # OS
 .DS_Store
 Thumbs.db
+Desktop.ini
+.Spotlight-V100
+.Trashes
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+~*
 
 # Project specific
 nul
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Node (if any frontend tooling)
+node_modules/
+
+# Secrets - never commit these patterns
+*.pem
+*.key
+*_rsa
+*.p12
+secrets/
+credentials/

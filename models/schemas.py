@@ -42,7 +42,6 @@ class LogEntry(BaseModel):
     score: float
     issues: List[PostureIssue]
     metrics: PostureMetrics
-    screenshot_path: Optional[str]
 
 class SessionSummary(BaseModel):
     session_id: str

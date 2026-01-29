@@ -48,6 +48,16 @@ else:
 # Trusted hosts - prevent host header attacks
 _hosts = os.getenv("ALLOWED_HOSTS", "")
 ALLOWED_HOSTS = [h.strip() for h in _hosts.split(",") if h.strip()]
+# Always allow localhost during development or testing
+if "localhost" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("localhost")
+if "127.0.0.1" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("127.0.0.1")
+if "0.0.0.0" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("0.0.0.0")
+# In development, allow local network IPs for mobile testing
+if ENVIRONMENT == "development":
+    ALLOWED_HOSTS.append("*")
 
 # Rate limiting
 RATE_LIMIT_REQUESTS_PER_MINUTE = int(os.getenv("RATE_LIMIT_RPM", "120"))

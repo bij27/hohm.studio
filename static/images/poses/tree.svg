@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150" fill="#7c9a92">
+  <!-- Tree Pose - Standing on one leg, other foot on thigh, arms up -->
+  <circle cx="50" cy="15" r="10"/> <!-- Head -->
+  <line x1="50" y1="25" x2="50" y2="70" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Torso -->
+  <line x1="50" y1="35" x2="35" y2="15" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Left arm up -->
+  <line x1="50" y1="35" x2="65" y2="15" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Right arm up -->
+  <line x1="50" y1="70" x2="50" y2="130" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Standing leg -->
+  <line x1="50" y1="90" x2="65" y2="75" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Bent leg -->
+  <circle cx="50" cy="135" r="5"/> <!-- Foot -->
+</svg>

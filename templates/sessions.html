@@ -9,6 +9,8 @@
     <meta name="description" content="Review your posture sessions and track your progress with hohm.studio">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <style>
         :root {
             --color-bg: #fcfaf7;
@@ -166,13 +168,13 @@
         <a href="/">
             <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
         </a>
-        <a href="/" class="btn btn-primary">Start New Session</a>
+        <a href="/" class="btn btn-primary"><i data-lucide="play" style="margin-right: 8px;"></i>Start New Session</a>
     </header>
 
     <main>
         <div class="page-header">
             <h1>Your Sessions</h1>
-            <button onclick="deleteAllSessions()" class="btn btn-danger">Clear All</button>
+            <button onclick="deleteAllSessions()" class="btn btn-danger"><i data-lucide="trash-2" style="margin-right: 6px;"></i>Clear All</button>
         </div>
         <div class="session-list" id="session-list"></div>
     </main>
@@ -188,7 +190,8 @@
             const list = document.getElementById('session-list');
 
             if (sessions.length === 0) {
-                list.innerHTML = '<div class="empty-state"><div style="font-size:2rem">🧘</div><p>No sessions yet. Start your first session to track your posture.</p></div>';
+                list.innerHTML = '<div class="empty-state"><div style="font-size:2rem; color: var(--color-primary);"><i data-lucide="user"></i></div><p>No sessions yet. Start your first session to track your posture.</p></div>';
+                lucide.createIcons();
                 return;
             }
 
@@ -217,5 +220,6 @@
 
         loadSessions();
     </script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>

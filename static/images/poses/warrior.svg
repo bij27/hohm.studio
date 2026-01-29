@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" fill="#7c9a92">
+  <!-- Warrior Pose - Lunge with arms extended -->
+  <circle cx="60" cy="20" r="10"/> <!-- Head -->
+  <line x1="60" y1="30" x2="60" y2="70" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Torso -->
+  <line x1="60" y1="40" x2="25" y2="40" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Left arm -->
+  <line x1="60" y1="40" x2="95" y2="40" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Right arm -->
+  <line x1="60" y1="70" x2="35" y2="130" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Back leg -->
+  <line x1="60" y1="70" x2="75" y2="100" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Front thigh -->
+  <line x1="75" y1="100" x2="75" y2="130" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Front shin -->
+  <circle cx="35" cy="135" r="5"/> <!-- Back foot -->
+  <circle cx="75" cy="135" r="5"/> <!-- Front foot -->
+</svg>
