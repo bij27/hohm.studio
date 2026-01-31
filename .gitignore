@@ -57,6 +57,9 @@ npm-debug.log*
 # Project specific
 nul
 
+# Temporary yoga dataset (development only)
+_yoga_dataset_temp/
+
 # Test artifacts
 .coverage
 htmlcov/

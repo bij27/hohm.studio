@@ -1,0 +1,197 @@
+/**
+ * Accessibility Styles - WCAG 2.1 Level A & AA Compliance
+ * Include this file in all templates for consistent accessibility.
+ */
+
+/* =============================================================================
+   SKIP LINK - Level A: 2.4.1 Bypass Blocks
+   ============================================================================= */
+
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 16px;
+    background: #2c3333;
+    color: #ffffff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    z-index: 10000;
+    transition: top 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.skip-link:focus {
+    top: 16px;
+    outline: 3px solid #7c9a92;
+    outline-offset: 2px;
+}
+
+/* =============================================================================
+   FOCUS STATES - Level A: 2.4.7 Focus Visible
+   Level AA: Enhanced focus indicators with sufficient contrast
+   ============================================================================= */
+
+/* Default focus outline for all interactive elements */
+a:focus,
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+[tabindex]:focus {
+    outline: 3px solid #7c9a92;
+    outline-offset: 2px;
+}
+
+/* Remove default outline only when custom focus is applied */
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Restore for keyboard navigation */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 3px solid #7c9a92;
+    outline-offset: 2px;
+}
+
+/* High contrast focus for dark backgrounds */
+.dark-bg a:focus-visible,
+.dark-bg button:focus-visible,
+[data-theme="dark"] a:focus-visible,
+[data-theme="dark"] button:focus-visible {
+    outline-color: #a8c5be;
+}
+
+/* Button-specific focus enhancements */
+.btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+    outline: 3px solid #2c3333;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px rgba(124, 154, 146, 0.3);
+}
+
+/* Icon button focus */
+.btn-icon:focus-visible,
+.audio-toggle:focus-visible,
+.ambient-track:focus-visible {
+    outline: 3px solid #7c9a92;
+    outline-offset: 2px;
+}
+
+/* Form control focus */
+input[type="text"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="checkbox"]:focus-visible,
+input[type="range"]:focus-visible,
+select:focus-visible {
+    outline: 3px solid #7c9a92;
+    outline-offset: 2px;
+    border-color: #7c9a92;
+}
+
+/* Card/interactive container focus */
+.path-card:focus-visible,
+.feature-card:focus-visible,
+.pose-card:focus-visible {
+    outline: 3px solid #7c9a92;
+    outline-offset: 4px;
+}
+
+/* Navigation link focus */
+nav a:focus-visible,
+.nav-links a:focus-visible {
+    outline: 3px solid #7c9a92;
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+/* =============================================================================
+   SCREEN READER UTILITIES - Level A: 1.3.1 Info and Relationships
+   ============================================================================= */
+
+/* Visually hidden but accessible to screen readers */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Show on focus (for skip links that need to be visible when focused) */
+.sr-only-focusable:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}
+
+/* =============================================================================
+   COLOR CONTRAST FIXES - Level AA: 1.4.3 Contrast (Minimum)
+   Original #6b7575 on #fcfaf7 = ~3.8:1 (fails AA)
+   New #595959 on #fcfaf7 = ~5.7:1 (passes AA)
+   ============================================================================= */
+
+/* Override secondary text color for better contrast */
+.text-secondary,
+.color-text-secondary {
+    color: #595959 !important;
+}
+
+/* =============================================================================
+   SCROLL PADDING - Level AA: Focus not obscured
+   Accounts for fixed header when tabbing through page
+   ============================================================================= */
+
+html {
+    scroll-padding-top: 100px;
+}
+
+/* =============================================================================
+   REDUCED MOTION - Level AAA (bonus): 2.3.3 Animation from Interactions
+   Respect user preference for reduced motion
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* =============================================================================
+   HIGH CONTRAST MODE SUPPORT - Level AA enhancement
+   ============================================================================= */
+
+@media (prefers-contrast: high) {
+    .btn-primary,
+    .btn-secondary {
+        border: 2px solid currentColor;
+    }
+
+    a:focus-visible,
+    button:focus-visible {
+        outline-width: 4px;
+    }
+}

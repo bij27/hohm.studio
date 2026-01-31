@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-8332216835063057">
     <title>hohm.studio | Session Review</title>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
     <meta name="description" content="Review your posture session details and get personalized recommendations from hohm.studio">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
     <!-- Lucide Icons -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="/static/js/device-auth.js"></script>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
     <style>
         :root {
             --color-bg: #fcfaf7;
@@ -20,7 +21,7 @@
             --color-primary-light: #a8c5be;
             --color-accent: #d4a574;
             --color-text: #2c3333;
-            --color-text-secondary: #6b7575;
+            --color-text-secondary: #595959; /* WCAG AA */
             --color-good: #7c9a92;
             --color-bad: #c97b7b;
             --radius: 20px;
@@ -185,17 +186,18 @@
     </style>
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <header>
         <a href="/">
             <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
         </a>
         <nav>
-            <a href="/sessions"><i data-lucide="history" style="margin-right: 6px;"></i>All Sessions</a>
-            <a href="/" class="btn-outline"><i data-lucide="plus" style="margin-right: 6px;"></i>New Session</a>
+            <a href="/sessions"><i data-lucide="history" style="margin-right: 6px;" aria-hidden="true"></i>All Sessions</a>
+            <a href="/" class="btn-outline"><i data-lucide="plus" style="margin-right: 6px;" aria-hidden="true"></i>New Session</a>
         </nav>
     </header>
 
-    <main>
+    <main id="main-content">
         <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <h2 id="session-title">Session Review</h2>
@@ -253,7 +255,7 @@
     </main>
 
     <footer style="padding: 40px; text-align: center; color: var(--color-text-secondary); font-size: 0.8rem; border-top: 1px solid rgba(124, 154, 146, 0.1);">
-        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a></p>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a> | <a href="/tos" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Terms of Service</a></p>
     </footer>
 
     <script>const SESSION_ID = "{{session_id}}";</script>

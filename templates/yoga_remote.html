@@ -448,8 +448,10 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <!-- No JavaScript fallback -->
     <noscript>
         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fcfaf7; display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; text-align: center;">
@@ -558,25 +560,25 @@
         <!-- Audio Controls -->
         <div class="audio-card">
             <div class="audio-row">
-                <button class="audio-toggle active" id="voice-toggle">
-                    <i data-lucide="volume-2"></i>
+                <button class="audio-toggle active" id="voice-toggle" aria-label="Toggle voice guidance">
+                    <i data-lucide="volume-2" aria-hidden="true"></i>
                 </button>
                 <span class="audio-label-text">Voice</span>
-                <input type="range" class="volume-slider" id="voice-volume" min="0" max="100" value="80">
+                <input type="range" class="volume-slider" id="voice-volume" min="0" max="100" value="80" aria-label="Voice volume">
             </div>
             <div class="audio-row">
-                <button class="audio-toggle" id="ambient-toggle">
-                    <i data-lucide="music"></i>
+                <button class="audio-toggle" id="ambient-toggle" aria-label="Toggle ambient music">
+                    <i data-lucide="music" aria-hidden="true"></i>
                 </button>
                 <span class="audio-label-text">Ambient</span>
-                <input type="range" class="volume-slider" id="ambient-volume" min="0" max="100" value="30">
+                <input type="range" class="volume-slider" id="ambient-volume" min="0" max="100" value="30" aria-label="Ambient volume">
             </div>
             <!-- Ambient Track Selector -->
             <div class="ambient-tracks" id="ambient-tracks">
-                <button class="ambient-track active" data-track="permafrost" title="Permafrost"><i data-lucide="snowflake"></i></button>
-                <button class="ambient-track" data-track="reverie" title="Reverie"><i data-lucide="cloud"></i></button>
-                <button class="ambient-track" data-track="borealis" title="Borealis"><i data-lucide="sparkles"></i></button>
-                <button class="ambient-track" data-track="petrichor" title="Petrichor"><i data-lucide="droplets"></i></button>
+                <button class="ambient-track active" data-track="permafrost" title="Permafrost" aria-label="Permafrost"><i data-lucide="snowflake" aria-hidden="true"></i></button>
+                <button class="ambient-track" data-track="reverie" title="Reverie" aria-label="Reverie"><i data-lucide="cloud" aria-hidden="true"></i></button>
+                <button class="ambient-track" data-track="borealis" title="Borealis" aria-label="Borealis"><i data-lucide="sparkles" aria-hidden="true"></i></button>
+                <button class="ambient-track" data-track="petrichor" title="Petrichor" aria-label="Petrichor"><i data-lucide="droplets" aria-hidden="true"></i></button>
             </div>
         </div>
     </main>

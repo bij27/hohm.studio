@@ -90,7 +90,7 @@
             --color-primary-light: #a8c5be;
             --color-accent: #d4a574;
             --color-text: #2c3333;
-            --color-text-secondary: #6b7575;
+            --color-text-secondary: #595959; /* WCAG AA: 5.7:1 contrast */
             --radius: 24px;
             --shadow: 0 20px 40px rgba(124, 154, 146, 0.1);
         }
@@ -505,8 +505,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- Lucide Icons (SVG-based) -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <!-- Accessibility styles -->
+    <link rel="stylesheet" href="/static/css/accessibility.css">
 </head>
 <body>
+    <!-- Skip link for keyboard users -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <!-- No JavaScript notice (landing page works, but app needs JS) -->
     <noscript>
         <div style="background: rgba(212, 165, 116, 0.15); border-left: 3px solid #d4a574; padding: 12px 20px; margin: 0; text-align: center;">
@@ -521,32 +526,45 @@
         <nav class="nav-links">
             <a href="#features">Features</a>
             <a href="#benefits">Benefits</a>
+            <a href="/science">Science</a>
             <a href="/privacy">Privacy</a>
-            <a href="/app" class="btn btn-primary" style="padding: 12px 24px; font-size: 0.95rem;"><i data-lucide="sparkles" style="margin-right: 6px; width: 16px; height: 16px;"></i>Start Free</a>
+            <a href="/app" class="btn btn-primary" style="padding: 12px 24px; font-size: 0.95rem;"><i data-lucide="sparkles" aria-hidden="true" style="margin-right: 6px; width: 16px; height: 16px;"></i>Start Free</a>
         </nav>
     </header>
 
+    <main id="main-content">
     <section class="hero">
         <div class="hero-content">
             <h1>Your <span>ohm</span> at home.</h1>
             <p>Free AI-powered yoga sessions and posture correction. No login, no data collection, no strings attached. Just you, your camera, and better wellness.</p>
 
             <div class="hero-badges">
-                <span class="badge"><i data-lucide="check-circle"></i> 100% Free</span>
-                <span class="badge"><i data-lucide="shield-check"></i> No Login Required</span>
-                <span class="badge"><i data-lucide="lock"></i> Complete Privacy</span>
-                <span class="badge"><i data-lucide="sparkles"></i> AI Powered</span>
+                <span class="badge"><i data-lucide="check-circle" aria-hidden="true"></i> 100% Free</span>
+                <span class="badge"><i data-lucide="shield-check" aria-hidden="true"></i> No Login Required</span>
+                <span class="badge"><i data-lucide="lock" aria-hidden="true"></i> Complete Privacy</span>
+                <span class="badge"><i data-lucide="sparkles" aria-hidden="true"></i> AI Powered</span>
             </div>
 
             <div class="cta-group">
-                <a href="/yoga" class="btn btn-primary"><i data-lucide="heart" style="margin-right: 8px; width: 20px; height: 20px;"></i>Start Yoga <span class="beta-tag">BETA</span></a>
-                <a href="/app" class="btn btn-secondary"><i data-lucide="scan" style="margin-right: 8px; width: 20px; height: 20px;"></i>Posture Check</a>
+                <a href="/yoga" class="btn btn-primary"><i data-lucide="heart" aria-hidden="true" style="margin-right: 8px; width: 20px; height: 20px;"></i>Start Yoga <span class="beta-tag">BETA</span></a>
+                <a href="/app" class="btn btn-secondary"><i data-lucide="scan" aria-hidden="true" style="margin-right: 8px; width: 20px; height: 20px;"></i>Posture Check</a>
             </div>
         </div>
         <div class="hero-image">
             <img src="/static/images/hero_landing.png?v=2" alt="Person practicing yoga and maintaining perfect posture at home with AI guidance">
         </div>
     </section>
+
+    <!-- Ad Unit - Between Hero and Paths -->
+    <div style="margin: 40px auto; text-align: center; max-width: 728px; padding: 0 20px;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-8332216835063057"
+             data-ad-slot="1234567890"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
 
     <!-- Choose Your Path -->
     <section class="path-section" id="paths">
@@ -561,13 +579,13 @@
                 <h3>AI Yoga Sessions</h3>
                 <p>Follow along with AI-guided yoga poses. Real-time feedback helps you perfect your form while you flow through customized sessions.</p>
                 <ul class="path-features">
-                    <li><i data-lucide="check"></i> Voice-guided instructions</li>
-                    <li><i data-lucide="check"></i> Real-time pose correction</li>
-                    <li><i data-lucide="check"></i> Customizable session length</li>
-                    <li><i data-lucide="check"></i> Calming ambient music</li>
-                    <li><i data-lucide="check"></i> Phone remote control</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Voice-guided instructions</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Real-time pose correction</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Customizable session length</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Calming ambient music</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Phone remote control</li>
                 </ul>
-                <a href="/yoga" class="btn btn-primary"><i data-lucide="play" style="margin-right: 8px; width: 18px; height: 18px;"></i>Start Yoga <span class="beta-tag">BETA</span></a>
+                <a href="/yoga" class="btn btn-primary"><i data-lucide="play" aria-hidden="true" style="margin-right: 8px; width: 18px; height: 18px;"></i>Start Yoga <span class="beta-tag">BETA</span></a>
             </article>
 
             <article class="path-card">
@@ -575,13 +593,13 @@
                 <h3>Posture Monitoring</h3>
                 <p>Real-time posture tracking while you work. Get gentle reminders when you slouch and track your progress over time.</p>
                 <ul class="path-features">
-                    <li><i data-lucide="check"></i> Continuous monitoring</li>
-                    <li><i data-lucide="check"></i> Picture-in-Picture mode</li>
-                    <li><i data-lucide="check"></i> Slouch alerts & notifications</li>
-                    <li><i data-lucide="check"></i> Session history & reports</li>
-                    <li><i data-lucide="check"></i> Works while you work</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Continuous monitoring</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Picture-in-Picture mode</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Slouch alerts & notifications</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Session history & reports</li>
+                    <li><i data-lucide="check" aria-hidden="true"></i> Works while you work</li>
                 </ul>
-                <a href="/app" class="btn btn-primary"><i data-lucide="activity" style="margin-right: 8px; width: 18px; height: 18px;"></i>Check Posture</a>
+                <a href="/app" class="btn btn-primary"><i data-lucide="activity" aria-hidden="true" style="margin-right: 8px; width: 18px; height: 18px;"></i>Check Posture</a>
             </article>
         </div>
     </section>
@@ -709,39 +727,51 @@
         </div>
 
         <div class="faq-item">
-            <div class="faq-question"><i data-lucide="help-circle"></i> Is hohm.studio really free?</div>
+            <div class="faq-question"><i data-lucide="help-circle" aria-hidden="true"></i> Is hohm.studio really free?</div>
             <div class="faq-answer">Yes, completely free. No subscription, no hidden fees, no premium tiers. We believe everyone deserves access to wellness tools.</div>
         </div>
         <div class="faq-item">
-            <div class="faq-question"><i data-lucide="help-circle"></i> Do I need to create an account?</div>
+            <div class="faq-question"><i data-lucide="help-circle" aria-hidden="true"></i> Do I need to create an account?</div>
             <div class="faq-answer">No. Just visit and start. We don't need your email, password, or any personal information.</div>
         </div>
         <div class="faq-item">
-            <div class="faq-question"><i data-lucide="help-circle"></i> Is my video data private?</div>
+            <div class="faq-question"><i data-lucide="help-circle" aria-hidden="true"></i> Is my video data private?</div>
             <div class="faq-answer">Absolutely. All AI processing happens locally in your browser. Your webcam feed never leaves your device. We cannot and do not see your video.</div>
         </div>
         <div class="faq-item">
-            <div class="faq-question"><i data-lucide="help-circle"></i> What equipment do I need?</div>
+            <div class="faq-question"><i data-lucide="help-circle" aria-hidden="true"></i> What equipment do I need?</div>
             <div class="faq-answer">Just a device with a webcam and a modern browser (Chrome, Firefox, Safari, Edge). No special equipment, no yoga mat required - though one is nice to have!</div>
         </div>
         <div class="faq-item">
-            <div class="faq-question"><i data-lucide="help-circle"></i> How accurate is the AI?</div>
+            <div class="faq-question"><i data-lucide="help-circle" aria-hidden="true"></i> How accurate is the AI?</div>
             <div class="faq-answer">We use Google's MediaPipe technology, the same AI used by major tech companies. It tracks 33 body landmarks with high precision.</div>
         </div>
     </section>
+
+    <!-- Ad Unit - Before Final CTA -->
+    <div style="margin: 40px auto; text-align: center; max-width: 728px; padding: 0 20px;">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-8332216835063057"
+             data-ad-slot="1234567891"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
 
     <!-- Final CTA -->
     <section class="final-cta">
         <h2>Ready to Feel Better?</h2>
         <p>Start your wellness journey today. No signup, no commitment, no excuses.</p>
         <div class="cta-group">
-            <a href="/yoga" class="btn btn-primary"><i data-lucide="heart" style="margin-right: 8px; width: 20px; height: 20px;"></i>Start Yoga <span class="beta-tag">BETA</span></a>
-            <a href="/app" class="btn btn-secondary"><i data-lucide="scan" style="margin-right: 8px; width: 20px; height: 20px;"></i>Start Posture Check</a>
+            <a href="/yoga" class="btn btn-primary"><i data-lucide="heart" aria-hidden="true" style="margin-right: 8px; width: 20px; height: 20px;"></i>Start Yoga <span class="beta-tag">BETA</span></a>
+            <a href="/app" class="btn btn-secondary"><i data-lucide="scan" aria-hidden="true" style="margin-right: 8px; width: 20px; height: 20px;"></i>Start Posture Check</a>
         </div>
     </section>
+    </main>
 
     <footer>
-        <p>&copy; 2026 hohm.studio | Built for health, designed for peace. | <a href="/privacy">Privacy Policy</a></p>
+        <p>&copy; 2026 hohm.studio | Built for health, designed for peace. | <a href="/privacy">Privacy Policy</a> | <a href="/tos">Terms of Service</a></p>
         <p style="margin-top: 12px; font-size: 0.85rem;">Free AI yoga instructor, posture correction, home workout, stress relief, back pain help - no login required.</p>
     </footer>
 

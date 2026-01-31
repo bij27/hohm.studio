@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-8332216835063057">
     <title>hohm.studio | Yoga Sessions</title>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
     <meta name="description" content="AI-guided yoga sessions with real-time pose correction">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
@@ -19,7 +19,7 @@
             --color-primary-light: #a8c5be;
             --color-accent: #d4a574;
             --color-text: #2c3333;
-            --color-text-secondary: #6b7575;
+            --color-text-secondary: #595959; /* WCAG AA */
             --color-good: #7c9a92;
             --color-bad: #c97b7b;
             --radius: 20px;
@@ -189,12 +189,16 @@
         .pose-card {
             background: var(--color-surface);
             border-radius: var(--radius);
-            padding: 20px;
+            padding: 0; /* Full bleed */
             box-shadow: var(--shadow);
             cursor: pointer;
             transition: all 0.3s;
             border: 2px solid transparent;
+            overflow: hidden; /* Clip image corners */
+            display: flex;
+            flex-direction: column;
         }
+
         .pose-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 15px 40px rgba(124, 154, 146, 0.15);
@@ -207,12 +211,30 @@
         .pose-card h3 {
             font-weight: 500;
             margin-bottom: 4px;
+            font-size: 1.1rem;
         }
+
         .pose-card .sanskrit {
             font-size: 0.85rem;
             color: var(--color-text-secondary);
             font-style: italic;
             margin-bottom: 12px;
+        }
+
+        .pose-image {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            object-position: center;
+            background: #f7f7f7;
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+
+        .pose-content {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
         }
 
         .pose-tags {
@@ -242,6 +264,60 @@
         .pose-duration {
             font-size: 0.85rem;
             color: var(--color-text-secondary);
+        }
+
+        .pose-benefits {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            margin-top: 8px;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .pose-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+
+        .btn-learn-more {
+            flex: 1;
+            padding: 8px 12px;
+            background: transparent;
+            border: 1px solid var(--color-primary);
+            color: var(--color-primary);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .btn-learn-more:hover {
+            background: rgba(124, 154, 146, 0.1);
+        }
+
+        .btn-select {
+            flex: 1;
+            padding: 8px 12px;
+            background: var(--color-primary);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-select:hover {
+            background: var(--color-primary-light);
+        }
+        .pose-card.selected .btn-select {
+            background: var(--color-accent);
         }
 
         .selected-count {
@@ -275,8 +351,13 @@
             footer { padding: 24px 16px; }
         }
     </style>
+    <!-- Accessibility styles -->
+    <link rel="stylesheet" href="/static/css/accessibility.css">
 </head>
 <body>
+    <!-- Skip link for keyboard users -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <header>
         <a href="/">
             <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
@@ -284,11 +365,12 @@
         <nav>
             <a href="/app">Posture</a>
             <a href="/yoga" class="active">Yoga <span class="beta-tag">BETA</span></a>
+            <a href="/science">Science</a>
             <a href="/sessions">History</a>
         </nav>
     </header>
 
-    <main>
+    <main id="main-content">
         <div class="page-header">
             <h1>Guided Yoga Sessions</h1>
             <p>AI-powered pose guidance with real-time feedback</p>
@@ -299,34 +381,45 @@
 
             <div class="config-row">
                 <div class="config-option">
-                    <label>Session Duration</label>
-                    <div class="duration-buttons">
-                        <button class="duration-btn" data-duration="15">15 min</button>
-                        <button class="duration-btn active" data-duration="30">30 min</button>
-                        <button class="duration-btn" data-duration="60">1 hour</button>
+                    <label id="duration-label">Session Duration</label>
+                    <div class="duration-buttons" role="group" aria-labelledby="duration-label">
+                        <button class="duration-btn" data-duration="15" aria-pressed="false">15 min</button>
+                        <button class="duration-btn active" data-duration="30" aria-pressed="true">30 min</button>
+                        <button class="duration-btn" data-duration="60" aria-pressed="false">1 hour</button>
                     </div>
                 </div>
 
                 <div class="config-option">
-                    <label>Focus Area</label>
-                    <div class="focus-buttons">
-                        <button class="focus-btn active" data-focus="all">All</button>
-                        <button class="focus-btn" data-focus="flexibility">Flexibility</button>
-                        <button class="focus-btn" data-focus="strength">Strength</button>
-                        <button class="focus-btn" data-focus="balance">Balance</button>
-                        <button class="focus-btn" data-focus="relaxation">Relaxation</button>
+                    <label id="focus-label">Focus Area</label>
+                    <div class="focus-buttons" role="group" aria-labelledby="focus-label">
+                        <button class="focus-btn active" data-focus="all" aria-pressed="true">All</button>
+                        <button class="focus-btn" data-focus="flexibility" aria-pressed="false">Flexibility</button>
+                        <button class="focus-btn" data-focus="strength" aria-pressed="false">Strength</button>
+                        <button class="focus-btn" data-focus="balance" aria-pressed="false">Balance</button>
+                        <button class="focus-btn" data-focus="relaxation" aria-pressed="false">Relaxation</button>
                     </div>
                 </div>
             </div>
 
             <div class="start-session">
                 <button id="start-session-btn" class="btn btn-primary">
-                    <i data-lucide="play" style="margin-right: 8px;"></i>Start AI-Generated Session
+                    <i data-lucide="play" aria-hidden="true" style="margin-right: 8px;"></i>Start AI-Generated Session
                 </button>
                 <p style="margin-top: 12px; font-size: 0.85rem; color: var(--color-text-secondary);">
                     Or select specific poses below for a custom session
                 </p>
             </div>
+        </div>
+
+        <!-- Ad Unit - Between Session Config and Catalog -->
+        <div style="margin: 40px auto; text-align: center; max-width: 728px;">
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-pub-8332216835063057"
+                 data-ad-slot="1234567893"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
         </div>
 
         <div class="catalog-header">
@@ -349,7 +442,7 @@
     </main>
 
     <footer>
-        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy">Privacy Policy</a></p>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy">Privacy Policy</a> | <a href="/tos">Terms of Service</a></p>
     </footer>
 
     <script>
@@ -374,15 +467,22 @@
 
             grid.innerHTML = filteredPoses.map(pose => `
                 <div class="pose-card ${selectedPoses.includes(pose.id) ? 'selected' : ''}"
-                     data-id="${pose.id}"
-                     onclick="togglePose('${pose.id}')">
-                    <h3>${pose.name}</h3>
-                    <div class="sanskrit">${pose.sanskrit}</div>
-                    <div class="pose-tags">
-                        <span class="pose-tag tag-category">${pose.category}</span>
-                        <span class="pose-tag tag-${pose.difficulty}">${pose.difficulty}</span>
+                     data-id="${pose.id}">
+                    <img src="${pose.image}" alt="${pose.name}" class="pose-image">
+                    <div class="pose-content">
+                        <h3>${pose.name}</h3>
+                        <div class="sanskrit">${pose.sanskrit}</div>
+                        <div class="pose-tags">
+                            <span class="pose-tag tag-category">${pose.category}</span>
+                            <span class="pose-tag tag-${pose.difficulty}">${pose.difficulty}</span>
+                        </div>
+                        <div class="pose-duration">${pose.duration_seconds[0]}-${pose.duration_seconds[1]} seconds</div>
+                        <div class="pose-benefits">${pose.benefits || ''}</div>
+                        <div class="pose-actions">
+                            <a href="/yoga/poses/${pose.id}" class="btn-learn-more" onclick="event.stopPropagation()">Learn More</a>
+                            <button class="btn-select" onclick="togglePose('${pose.id}')">${selectedPoses.includes(pose.id) ? 'Selected' : 'Select'}</button>
+                        </div>
                     </div>
-                    <div class="pose-duration">${pose.duration_seconds[0]}-${pose.duration_seconds[1]} seconds</div>
                 </div>
             `).join('');
 
@@ -391,13 +491,19 @@
 
         function togglePose(id) {
             const index = selectedPoses.indexOf(id);
+            const card = document.querySelector(`.pose-card[data-id="${id}"]`);
+            const btn = card ? card.querySelector('.btn-select') : null;
+
             if (index > -1) {
                 selectedPoses.splice(index, 1);
+                if (card) card.classList.remove('selected');
+                if (btn) btn.textContent = 'Select';
             } else {
                 selectedPoses.push(id);
+                if (card) card.classList.add('selected');
+                if (btn) btn.textContent = 'Selected';
             }
             updateSelectedUI();
-            renderPoses();
         }
 
         function updateSelectedUI() {
@@ -433,23 +539,23 @@
             });
         });
 
-        // Start AI session
+        // Start AI session - redirect to preview page first
         document.getElementById('start-session-btn').addEventListener('click', () => {
             const params = new URLSearchParams({
                 duration: sessionDuration,
                 focus: sessionFocus,
                 mode: 'ai'
             });
-            window.location.href = `/yoga/session?${params}`;
+            window.location.href = `/yoga/preview?${params}`;
         });
 
-        // Start custom session
+        // Start custom session - redirect to preview page first
         function startCustomSession() {
             const params = new URLSearchParams({
                 poses: selectedPoses.join(','),
                 mode: 'custom'
             });
-            window.location.href = `/yoga/session?${params}`;
+            window.location.href = `/yoga/preview?${params}`;
         }
 
         loadPoses();

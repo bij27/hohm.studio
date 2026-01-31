@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-8332216835063057">
     <title>hohm.studio | Calibrate</title>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
     <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/accessibility.css">
     <!-- Lucide Icons -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <style>
@@ -97,11 +98,12 @@
             <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
         </a>
         <nav>
-            <a href="/monitor" style="color: var(--color-text-secondary); text-decoration: none; font-size: 0.9rem;"><i data-lucide="skip-forward" style="margin-right: 6px;"></i>Skip to Monitor</a>
+            <a href="/app" style="color: var(--color-text-secondary); text-decoration: none; font-size: 0.9rem;"><i data-lucide="skip-forward" style="margin-right: 6px;"></i>Skip to App</a>
         </nav>
     </header>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-    <main>
+    <main id="main-content">
         <div class="card" style="margin-bottom: 20px;">
             <h2>Calibrate Your Ideal Posture</h2>
             <p>Sit in your ideal "good" posture. Align your head with the circle and keep your back straight.</p>
@@ -120,13 +122,13 @@
         </div>
 
         <div style="margin-top: 20px; text-align: center;">
-            <button id="start-cal-btn" class="btn btn-primary" disabled><i data-lucide="hourglass" style="margin-right: 8px;"></i>Connecting...</button>
+            <button id="start-cal-btn" class="btn btn-primary" disabled><i data-lucide="hourglass" style="margin-right: 8px;" aria-hidden="true"></i>Connecting...</button>
             <p id="status-msg" style="margin-top: 12px; color: var(--color-text-secondary);">Waiting for connection...</p>
         </div>
     </main>
 
     <footer style="padding: 40px; text-align: center; color: var(--color-text-secondary); font-size: 0.8rem; border-top: 1px solid rgba(124, 154, 146, 0.1);">
-        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a></p>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a> | <a href="/tos" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Terms of Service</a></p>
     </footer>
 
     <script type="module" src="/static/js/calibration.js"></script>

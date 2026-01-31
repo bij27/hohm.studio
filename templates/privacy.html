@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-8332216835063057">
     <title>Privacy Policy - hohm.studio</title>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
     <style>
         body {
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -21,6 +21,9 @@
         .back-link { color: #d4a574; text-decoration: none; margin-bottom: 30px; display: inline-block; font-weight: 500; }
         .back-link:hover { text-decoration: underline; }
         p { margin-bottom: 20px; }
+        ul { padding-left: 24px; margin-bottom: 20px; }
+        li { margin-bottom: 8px; }
+        a { color: #7c9a92; }
 
         /* Tablet */
         @media (max-width: 900px) {
@@ -34,7 +37,7 @@
             body { padding: 24px 16px; line-height: 1.7; }
             h1 { font-size: 1.6rem; }
             h2 { font-size: 1.15rem; margin-top: 28px; }
-            p { font-size: 0.95rem; margin-bottom: 16px; }
+            p, li { font-size: 0.95rem; margin-bottom: 16px; }
             .back-link { font-size: 0.9rem; margin-bottom: 20px; }
         }
 
@@ -43,25 +46,81 @@
             body { padding: 20px 14px; }
             h1 { font-size: 1.4rem; }
             h2 { font-size: 1.1rem; }
-            p { font-size: 0.9rem; }
+            p, li { font-size: 0.9rem; }
         }
     </style>
     <!-- Lucide Icons -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <main id="main-content">
     <a href="/" class="back-link"><i data-lucide="arrow-left" style="margin-right: 6px;"></i>Back to hohm.studio</a>
     <h1>Privacy Policy</h1>
     <p>Last updated: January 2026</p>
-    
+
     <h2>1. Data Minimization</h2>
     <p>hohm.studio is designed with privacy at its core. Posture analysis is performed <strong>locally in your browser</strong>. Images from your webcam are processed in real-time and are never uploaded to our servers for analysis.</p>
 
     <h2>2. Data We Store</h2>
-    <p>We only store numerical posture metrics and session metadata to provide you with your history and reports. Your calibration profile is stored locally in your browser and never uploaded to our servers.</p>
+    <p>We only store numerical posture metrics and session metadata to provide you with your history and reports:</p>
+    <ul>
+        <li><strong>Session data:</strong> Timestamps, duration, posture scores, and detected issues</li>
+        <li><strong>Device token:</strong> An anonymous identifier stored in your browser to link your sessions</li>
+    </ul>
+    <p>Your calibration profile is stored locally in your browser (localStorage) and never uploaded to our servers.</p>
 
     <h2>3. Your Camera</h2>
-    <p>Camera access is required for the app to function. We do not record or stream your video feed to any third parties.</p>
+    <p>Camera access is required for the app to function. We do not record or stream your video feed to any third parties. All video processing happens entirely within your web browser using Google's MediaPipe technology.</p>
+
+    <h2>4. Third-Party Services</h2>
+    <p>We use the following third-party services:</p>
+    <ul>
+        <li><strong>Google AdSense:</strong> We display advertisements to support the free service. Google may collect data and use cookies to personalize ads. You can learn more at <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener">Google's advertising policies</a>.</li>
+        <li><strong>Google MediaPipe:</strong> We use this AI library for pose detection. It runs entirely in your browser and does not send data to Google.</li>
+        <li><strong>ElevenLabs:</strong> Voice guidance audio is generated using ElevenLabs text-to-speech and served as static audio files.</li>
+    </ul>
+
+    <h2>5. Cookies and Tracking Technologies</h2>
+    <p>We use minimal cookies and local storage:</p>
+    <ul>
+        <li><strong>Essential storage:</strong> Device token and calibration profile stored in localStorage</li>
+        <li><strong>Advertising cookies:</strong> Google AdSense may set cookies for ad personalization</li>
+    </ul>
+    <p>You can control cookie settings in your browser. Blocking essential storage may affect app functionality.</p>
+
+    <h2>6. Data Retention</h2>
+    <p>We retain session data for <strong>90 days</strong>, after which it is automatically deleted from our servers. You can also manually delete individual sessions at any time from the Sessions page.</p>
+
+    <h2>7. Your Rights</h2>
+    <p>Depending on your location, you may have the following rights:</p>
+    <ul>
+        <li><strong>Access:</strong> View your session data through the Sessions page</li>
+        <li><strong>Deletion:</strong> Delete individual sessions or clear your browser's localStorage to remove local data</li>
+        <li><strong>Portability:</strong> Export your session data from the review page</li>
+        <li><strong>Opt-out:</strong> You can use browser settings or extensions to block advertising cookies</li>
+    </ul>
+    <p>For California residents (CCPA) and EU residents (GDPR): We collect minimal personal information and do not sell your data. Since we don't require accounts, we don't have email addresses or personal identifiers beyond anonymous device tokens.</p>
+
+    <h2>8. Children's Privacy</h2>
+    <p>hohm.studio is not intended for children under 13 years of age. We do not knowingly collect personal information from children.</p>
+
+    <h2>9. Security</h2>
+    <p>We implement appropriate technical measures to protect stored data, including encrypted connections (HTTPS), secure database access, and regular security reviews. However, no method of transmission over the Internet is 100% secure.</p>
+
+    <h2>10. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated "Last updated" date.</p>
+
+    <h2>11. Contact</h2>
+    <p>If you have questions about this Privacy Policy, please contact us through our website.</p>
+
+    <p style="margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(124, 154, 146, 0.2); color: var(--color-text-secondary); font-size: 0.9rem;">
+        <a href="/tos" style="margin-right: 20px;">Terms of Service</a>
+        <a href="/">Back to hohm.studio</a>
+    </p>
+    </main>
+
     <script>lucide.createIcons();</script>
 </body>
 </html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-8332216835063057">
+    <title>Your Yoga Flow | hohm.studio</title>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
+    <meta name="description" content="Preview your personalized yoga session before starting. Understand the science behind your flow and prepare for your practice.">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-bg: #fcfaf7;
+            --color-surface: #ffffff;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #2c3333;
+            --color-text-secondary: #595959; /* WCAG AA */
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.8;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .logo-img { height: 40px; width: auto; }
+        nav { display: flex; gap: 20px; align-items: center; }
+        nav a {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        nav a:hover { color: var(--color-primary); }
+
+        .hero {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            padding: 60px 48px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 2.2rem;
+            font-weight: 300;
+            margin-bottom: 12px;
+        }
+        .hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .session-overview {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 32px;
+            flex-wrap: wrap;
+        }
+        .overview-item {
+            text-align: center;
+        }
+        .overview-value {
+            font-size: 2rem;
+            font-weight: 500;
+        }
+        .overview-label {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        .section {
+            margin-bottom: 48px;
+        }
+        .section h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section h2 i { color: var(--color-primary); width: 24px; height: 24px; }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: var(--shadow);
+        }
+
+        .science-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .science-item h4 {
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--color-text);
+        }
+        .science-item p {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .pose-sequence {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .sequence-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 12px;
+            align-items: center;
+        }
+        .sequence-number {
+            width: 32px;
+            height: 32px;
+            background: var(--color-primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        .sequence-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        .sequence-info {
+            flex: 1;
+        }
+        .sequence-info h4 {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .sequence-info .sanskrit {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            font-style: italic;
+        }
+        .sequence-info .duration {
+            font-size: 0.85rem;
+            color: var(--color-accent);
+            margin-top: 4px;
+        }
+        .sequence-benefits {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            max-width: 300px;
+        }
+
+        .benefits-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .benefit-card {
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .benefit-card i {
+            color: var(--color-primary);
+            margin-bottom: 12px;
+        }
+        .benefit-card h4 {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .benefit-card p {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        .cta-section {
+            text-align: center;
+            padding: 48px;
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        .cta-section h2 {
+            font-weight: 400;
+            margin-bottom: 16px;
+            justify-content: center;
+        }
+        .cta-section p {
+            color: var(--color-text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 40px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(124, 154, 146, 0.3);
+        }
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--color-primary);
+            color: var(--color-primary);
+            padding: 14px 32px;
+            font-size: 1rem;
+            margin-left: 16px;
+        }
+        .btn-secondary:hover {
+            background: rgba(124, 154, 146, 0.1);
+        }
+
+        .preparation-tips {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        .prep-tip {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 10px;
+        }
+        .prep-tip i {
+            color: var(--color-primary);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .prep-tip span {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        footer {
+            padding: 40px;
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        footer a { color: var(--color-primary); text-decoration: none; }
+
+        @media (max-width: 768px) {
+            header { padding: 12px 16px; }
+            .hero { padding: 40px 16px; }
+            .hero h1 { font-size: 1.6rem; }
+            main { padding: 24px 16px; }
+            .science-content { grid-template-columns: 1fr; }
+            .sequence-benefits { display: none; }
+            .btn-secondary { margin-left: 0; margin-top: 12px; }
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <header>
+        <a href="/">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <nav>
+            <a href="/yoga">Back to Yoga</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Your Personalized Yoga Flow</h1>
+        <p>Take a moment to understand your practice before you begin</p>
+
+        <div class="session-overview">
+            <div class="overview-item">
+                <div class="overview-value" id="duration-display">--</div>
+                <div class="overview-label">Minutes</div>
+            </div>
+            <div class="overview-item">
+                <div class="overview-value" id="pose-count-display">--</div>
+                <div class="overview-label">Poses</div>
+            </div>
+            <div class="overview-item">
+                <div class="overview-value" id="focus-display">--</div>
+                <div class="overview-label">Focus</div>
+            </div>
+        </div>
+    </section>
+
+    <main id="main-content">
+        <!-- Science of the Flow -->
+        <section class="section">
+            <h2><i data-lucide="beaker" aria-hidden="true"></i> The Science of Your Flow</h2>
+            <div class="card">
+                <div class="science-content">
+                    <div class="science-item">
+                        <h4>Why This Sequence?</h4>
+                        <p>Your session follows proven yoga sequencing principles: beginning with centering and warm-up poses, progressing to more challenging postures as your body warms, and concluding with cooling poses that integrate the practice.</p>
+                    </div>
+                    <div class="science-item">
+                        <h4>Bilateral Balance</h4>
+                        <p>Asymmetric poses are performed on both sides to maintain muscular balance and develop equal strength and flexibility throughout your body.</p>
+                    </div>
+                    <div class="science-item">
+                        <h4>Breath-Movement Connection</h4>
+                        <p>Each pose is designed to be held with steady breathing. Research shows this activates your parasympathetic nervous system, reducing stress hormones and promoting relaxation.</p>
+                    </div>
+                    <div class="science-item">
+                        <h4>Progressive Challenge</h4>
+                        <p>The sequence gradually increases in intensity, allowing your muscles and joints to warm up before the most demanding postures, reducing injury risk.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pose Sequence Preview -->
+        <section class="section">
+            <h2><i data-lucide="list-ordered" aria-hidden="true"></i> Your Pose Sequence</h2>
+            <div class="card">
+                <div class="pose-sequence" id="pose-sequence">
+                    <!-- Populated by JavaScript -->
+                    <p style="color: var(--color-text-secondary); text-align: center;">Loading your sequence...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Benefits Breakdown -->
+        <section class="section">
+            <h2><i data-lucide="heart" aria-hidden="true"></i> Session Benefits</h2>
+            <div class="card">
+                <div class="benefits-breakdown" id="benefits-breakdown">
+                    <div class="benefit-card">
+                        <i data-lucide="activity" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Physical Wellness</h4>
+                        <p>Improved flexibility, strength, and balance through targeted muscle engagement</p>
+                    </div>
+                    <div class="benefit-card">
+                        <i data-lucide="brain" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Mental Clarity</h4>
+                        <p>Enhanced focus and reduced stress through mindful movement and breathing</p>
+                    </div>
+                    <div class="benefit-card">
+                        <i data-lucide="battery-charging" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Energy Boost</h4>
+                        <p>Increased vitality and reduced fatigue through improved circulation</p>
+                    </div>
+                    <div class="benefit-card">
+                        <i data-lucide="moon" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Better Rest</h4>
+                        <p>Improved sleep quality through nervous system regulation</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preparation Tips -->
+        <section class="section">
+            <h2><i data-lucide="lightbulb" aria-hidden="true"></i> Prepare for Your Practice</h2>
+            <div class="card">
+                <div class="preparation-tips">
+                    <div class="prep-tip">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;" aria-hidden="true"></i>
+                        <span>Find a quiet space where you won't be interrupted for the duration of your session</span>
+                    </div>
+                    <div class="prep-tip">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;" aria-hidden="true"></i>
+                        <span>Position yourself about 6-10 feet from your camera so your full body is visible</span>
+                    </div>
+                    <div class="prep-tip">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;" aria-hidden="true"></i>
+                        <span>Wear comfortable, form-fitting clothing that won't obscure your movements</span>
+                    </div>
+                    <div class="prep-tip">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;" aria-hidden="true"></i>
+                        <span>Have water nearby and use a yoga mat if you have one (not required)</span>
+                    </div>
+                    <div class="prep-tip">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;" aria-hidden="true"></i>
+                        <span>Ensure good lighting so the AI can accurately track your movements</span>
+                    </div>
+                    <div class="prep-tip">
+                        <i data-lucide="check-circle" style="width: 20px; height: 20px;" aria-hidden="true"></i>
+                        <span>Listen to your body - modify or skip any pose that causes discomfort</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="cta-section">
+            <h2><i data-lucide="play-circle" aria-hidden="true"></i> Ready to Begin?</h2>
+            <p>Your personalized yoga flow awaits. Take a deep breath and step onto your mat.</p>
+            <button class="btn btn-primary" id="begin-session-btn">
+                <i data-lucide="play" aria-hidden="true"></i> Begin Session
+            </button>
+            <a href="/yoga" class="btn btn-secondary">
+                <i data-lucide="arrow-left" aria-hidden="true"></i> Modify Session
+            </a>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy">Privacy Policy</a> | <a href="/tos">Terms of Service</a></p>
+    </footer>
+
+    <script>
+        // Parse URL parameters
+        const params = new URLSearchParams(window.location.search);
+        const duration = params.get('duration') || 30;
+        const focus = params.get('focus') || 'all';
+        const mode = params.get('mode') || 'ai';
+        const poseIds = params.get('poses') ? params.get('poses').split(',') : null;
+
+        // Update overview display
+        document.getElementById('duration-display').textContent = duration;
+        document.getElementById('focus-display').textContent = focus.charAt(0).toUpperCase() + focus.slice(1);
+
+        // Load poses data
+        let allPoses = [];
+
+        async function loadPoses() {
+            const response = await fetch('/static/data/yoga/poses.json');
+            const data = await response.json();
+            allPoses = data.poses;
+
+            // Filter poses based on session config
+            let sessionPoses;
+            if (poseIds && poseIds.length > 0) {
+                sessionPoses = allPoses.filter(p => poseIds.includes(p.id));
+            } else if (focus !== 'all') {
+                sessionPoses = allPoses.filter(p => p.focus.includes(focus));
+            } else {
+                sessionPoses = allPoses;
+            }
+
+            // Update pose count
+            document.getElementById('pose-count-display').textContent = sessionPoses.length;
+
+            // Render sequence
+            renderSequence(sessionPoses);
+        }
+
+        function renderSequence(poses) {
+            const container = document.getElementById('pose-sequence');
+            if (poses.length === 0) {
+                container.innerHTML = '<p style="color: var(--color-text-secondary); text-align: center;">No poses selected</p>';
+                return;
+            }
+
+            container.innerHTML = poses.map((pose, index) => `
+                <div class="sequence-item">
+                    <div class="sequence-number">${index + 1}</div>
+                    <img src="${pose.image}" alt="${pose.name}" class="sequence-image">
+                    <div class="sequence-info">
+                        <h4>${pose.name}</h4>
+                        <div class="sanskrit">${pose.sanskrit}</div>
+                        <div class="duration">${pose.duration_seconds[0]}-${pose.duration_seconds[1]} seconds</div>
+                    </div>
+                    <div class="sequence-benefits">${pose.benefits}</div>
+                </div>
+            `).join('');
+        }
+
+        // Begin session button
+        document.getElementById('begin-session-btn').addEventListener('click', () => {
+            // Pass through original params to actual session
+            const sessionParams = new URLSearchParams({
+                duration: duration,
+                focus: focus,
+                mode: mode
+            });
+            if (poseIds) {
+                sessionParams.set('poses', poseIds.join(','));
+            }
+            window.location.href = `/yoga/session?${sessionParams}`;
+        });
+
+        loadPoses();
+    </script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

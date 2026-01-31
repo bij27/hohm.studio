@@ -2,7 +2,7 @@
     --color-bg: #fcfaf7;
     --color-surface: #ffffff;
     --color-text-primary: #2c3333;
-    --color-text-secondary: #6b7575;
+    --color-text-secondary: #595959; /* WCAG AA contrast: 5.7:1 on #fcfaf7 */
     --color-border: rgba(124, 154, 146, 0.1);
     --color-good: #7c9a92;
     --color-warning: #d4a574;

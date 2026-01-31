@@ -143,15 +143,13 @@ async function startCalibration() {
 function onCalibrationComplete(profile) {
     isCalibrating = false;
     cancelAnimationFrame(animationFrameId);
-    statusMsg.innerText = 'Calibration Complete! Saving...';
-    
-    fetch('/api/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile)
-    }).then(() => {
-        window.location.href = '/monitor';
-    });
+    statusMsg.innerText = 'Calibration Complete!';
+
+    // Store profile in localStorage for use by the app
+    localStorage.setItem('postureProfile', JSON.stringify(profile));
+
+    // Redirect to the main app
+    window.location.href = '/app';
 }
 
 startBtn.addEventListener('click', startCalibration);

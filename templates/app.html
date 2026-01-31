@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-8332216835063057">
     <title>hohm.studio | AI Posture Correction</title>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
     <meta name="description" content="Your &ldquo;ohm&rdquo; at home. AI-powered posture correction for a healthier, more zen lifestyle.">
     <meta name="keywords" content="hohm, posture correction, posture tracking, ergonomics, wellness, health, mindfulness, desk posture, back health, zen">
     <meta name="author" content="hohm.studio">
@@ -49,7 +49,7 @@
             --color-primary-light: #a8c5be;
             --color-accent: #d4a574; /* Warm Sand / Wood */
             --color-text: #2c3333; /* Dark Slate Gray */
-            --color-text-secondary: #6b7575;
+            --color-text-secondary: #595959; /* WCAG AA: 5.7:1 contrast */
             --color-good: #7c9a92;
             --color-warning: #d4a574;
             --color-bad: #c97b7b; /* Muted Coral */
@@ -719,8 +719,13 @@
             color: var(--color-text);
         }
     </style>
+    <!-- Accessibility styles -->
+    <link rel="stylesheet" href="/static/css/accessibility.css">
 </head>
 <body>
+    <!-- Skip link for keyboard users -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <!-- No JavaScript fallback -->
     <noscript>
         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fcfaf7; display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; text-align: center;">
@@ -781,8 +786,8 @@
             </div>
 
             <div class="consent-actions">
-                <button id="consent-agree" class="btn btn-primary"><i data-lucide="check-circle" style="margin-right: 8px;"></i>I Understand & Agree</button>
-                <button id="consent-decline" class="btn btn-secondary"><i data-lucide="x-circle" style="margin-right: 8px;"></i>Decline</button>
+                <button id="consent-agree" class="btn btn-primary"><i data-lucide="check-circle" aria-hidden="true" style="margin-right: 8px;"></i>I Understand & Agree</button>
+                <button id="consent-decline" class="btn btn-secondary"><i data-lucide="x-circle" aria-hidden="true" style="margin-right: 8px;"></i>Decline</button>
             </div>
         </div>
     </div>
@@ -815,7 +820,7 @@
         </nav>
     </header>
 
-    <main>
+    <main id="main-content">
         <div class="hero-banner">
             <h1>Your posture determines your attitude.</h1>
             <p>Sit straight, be comfortable, get to work. We'll handle the rest.</p>
@@ -835,7 +840,7 @@
                     <div id="error-icon"><i data-lucide="alert-triangle" style="font-size: 2.5rem; color: var(--color-warning);"></i></div>
                     <div id="error-title">Error</div>
                     <div id="error-message">Something went wrong.</div>
-                    <button id="error-retry-btn" class="btn btn-primary"><i data-lucide="refresh-cw" style="margin-right: 8px;"></i>Try Again</button>
+                    <button id="error-retry-btn" class="btn btn-primary"><i data-lucide="refresh-cw" aria-hidden="true" style="margin-right: 8px;"></i>Try Again</button>
                 </div>
 
                 <div id="no-person-overlay">
@@ -847,7 +852,7 @@
 
             <div class="dashboard-sidebar">
                 <div class="card">
-                    <button id="session-btn" class="btn btn-primary" style="width: 100%;"><i data-lucide="play" style="margin-right: 8px;"></i>Start Session</button>
+                    <button id="session-btn" class="btn btn-primary" style="width: 100%;"><i data-lucide="play" aria-hidden="true" style="margin-right: 8px;"></i>Start Session</button>
 
                     <div class="guide-steps" id="guide-steps">
                         <h4>HOW IT WORKS</h4>
@@ -889,18 +894,18 @@
                     <div id="active-issues"></div>
                 </div>
 
-                <div id="settings-panel" class="card">
-                    <h3 style="font-weight: 400; margin-bottom: 15px; color: var(--color-text-secondary);">Settings</h3>
+                <div id="settings-panel" class="card" role="region" aria-labelledby="settings-heading">
+                    <h3 id="settings-heading" style="font-weight: 400; margin-bottom: 15px; color: var(--color-text-secondary);">Settings</h3>
                     <div class="setting-row" style="margin-bottom: 12px;">
-                        <span>Sound alerts</span>
+                        <label for="audio-toggle">Sound alerts</label>
                         <input type="checkbox" id="audio-toggle" checked>
                     </div>
                     <div class="setting-row" style="margin-bottom: 12px;">
-                        <span>Notifications</span>
+                        <label for="notify-toggle">Notifications</label>
                         <input type="checkbox" id="notify-toggle" checked>
                     </div>
                     <div class="setting-row" style="margin-bottom: 12px;">
-                        <span>Alert frequency</span>
+                        <label for="alert-frequency">Alert frequency</label>
                         <select id="alert-frequency" class="setting-select">
                             <option value="always">Every time</option>
                             <option value="moderate" selected>Moderate (30s)</option>
@@ -908,8 +913,8 @@
                         </select>
                     </div>
                     <div class="setting-row">
-                        <span>Picture-in-Picture</span>
-                        <button id="pip-btn" class="btn-pip" title="Float video while you work">
+                        <span id="pip-label">Picture-in-Picture</span>
+                        <button id="pip-btn" class="btn-pip" aria-label="Enable Picture-in-Picture mode" aria-describedby="pip-label">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
                                 <rect x="12" y="9" width="8" height="6" rx="1" ry="1" fill="currentColor"></rect>
@@ -925,7 +930,7 @@
     </main>
 
     <footer style="padding: 20px 40px; text-align: center; color: var(--color-text-secondary); font-size: 0.8rem; border-top: 1px solid rgba(124, 154, 146, 0.1);">
-        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a></p>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Privacy Policy</a> | <a href="/tos" style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Terms of Service</a></p>
     </footer>
 
     <script>

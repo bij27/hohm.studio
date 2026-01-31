@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-8332216835063057">
+    <title>hohm.studio | The Science Behind AI Pose Detection</title>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
+    <meta name="description" content="Learn how hohm.studio uses Google MediaPipe AI technology for real-time pose detection. Understand our methodology, accuracy, and the research behind yoga and posture wellness.">
+    <meta name="keywords" content="AI pose detection, MediaPipe, yoga technology, posture science, computer vision wellness, yoga research, pose estimation accuracy">
+    <link rel="canonical" href="https://hohm.studio/science">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
+
+    <!-- Schema.org FAQPage markup -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does AI pose detection work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "hohm.studio uses Google's MediaPipe Pose technology, which employs a machine learning model trained on millions of images to detect 33 body landmarks in real-time. The AI identifies key points like shoulders, elbows, hips, and knees, then calculates joint angles to compare your pose against reference positions. All processing happens locally in your browser - your video never leaves your device."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How accurate is the pose detection?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "MediaPipe Pose achieves high accuracy for typical webcam conditions. Under optimal lighting and positioning, landmark detection accuracy exceeds 90%. However, factors like poor lighting, loose clothing, partial visibility, or unusual camera angles can reduce accuracy. We recommend practicing in well-lit areas with your full body visible to the camera."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there scientific evidence that yoga and good posture improve health?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, numerous peer-reviewed studies support the benefits of yoga and posture correction. A 2024 systematic review in Frontiers in Psychiatry found yoga significantly reduces stress. Research from Mayo Clinic and NIH links good posture to reduced back pain and improved mood. Studies in the Journal of Physical Therapy Science show yoga improves flexibility and balance."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the AI store or upload my video?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. All pose detection processing happens entirely within your web browser using WebGL acceleration. Your webcam feed is never uploaded, stored, or transmitted to any server. We cannot see your video, and no images or recordings are created unless you explicitly choose to save them locally."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Article schema for E-E-A-T -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "The Science Behind AI Pose Detection for Yoga and Posture",
+      "description": "A technical and research-based explanation of how AI-powered pose detection works and the scientific evidence behind yoga and posture wellness benefits.",
+      "author": {
+        "@type": "Organization",
+        "name": "hohm.studio"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "hohm.studio",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://hohm.studio/static/images/logo.png"
+        }
+      },
+      "datePublished": "2026-01-29",
+      "dateModified": "2026-01-29"
+    }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-bg: #fcfaf7;
+            --color-surface: #ffffff;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #2c3333;
+            --color-text-secondary: #595959; /* WCAG AA */
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.8;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo-img { height: 40px; width: auto; transition: transform 0.3s ease; }
+        .logo-img:hover { transform: scale(1.05); }
+        nav { display: flex; gap: 20px; align-items: center; }
+        nav a {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        nav a:hover { color: var(--color-primary); }
+        nav a.active { color: var(--color-primary); font-weight: 500; }
+
+        .hero-section {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            padding: 80px 48px;
+            text-align: center;
+        }
+        .hero-section h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 16px;
+        }
+        .hero-section p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        .section {
+            margin-bottom: 60px;
+        }
+
+        .section h2 {
+            font-size: 1.8rem;
+            font-weight: 500;
+            margin-bottom: 24px;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .section h2 i { color: var(--color-primary); }
+
+        .section h3 {
+            font-size: 1.3rem;
+            font-weight: 500;
+            margin: 32px 0 16px;
+            color: var(--color-text);
+        }
+
+        .section p {
+            color: var(--color-text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            font-size: 1.2rem;
+        }
+
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }
+
+        .tech-item {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+        .tech-item h4 {
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tech-item h4 i { color: var(--color-primary); width: 20px; height: 20px; }
+        .tech-item p {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            margin: 0;
+        }
+
+        .citation-list {
+            list-style: none;
+        }
+        .citation-list li {
+            background: var(--color-surface);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow);
+            border-left: 3px solid var(--color-primary);
+        }
+        .citation-source {
+            font-weight: 500;
+            color: var(--color-text);
+            margin-bottom: 4px;
+        }
+        .citation-year {
+            font-size: 0.85rem;
+            color: var(--color-accent);
+            margin-bottom: 8px;
+        }
+        .citation-finding {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .accuracy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+        .accuracy-card {
+            background: var(--color-surface);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+        .accuracy-value {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+        .accuracy-label {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        .limitation-box {
+            background: rgba(212, 165, 116, 0.1);
+            border-left: 3px solid var(--color-accent);
+            border-radius: 0 12px 12px 0;
+            padding: 20px 24px;
+            margin: 24px 0;
+        }
+        .limitation-box h4 {
+            color: var(--color-accent);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .limitation-box ul {
+            color: var(--color-text-secondary);
+            padding-left: 20px;
+        }
+        .limitation-box li { margin-bottom: 8px; }
+
+        .faq-section .faq-item {
+            background: var(--color-surface);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+        }
+        .faq-question {
+            font-weight: 500;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .faq-question i { color: var(--color-primary); flex-shrink: 0; margin-top: 4px; }
+        .faq-answer {
+            color: var(--color-text-secondary);
+            padding-left: 32px;
+        }
+
+        .cta-banner {
+            background: var(--color-primary);
+            color: white;
+            border-radius: var(--radius);
+            padding: 48px;
+            text-align: center;
+            margin-top: 60px;
+        }
+        .cta-banner h2 {
+            font-weight: 400;
+            margin-bottom: 16px;
+            color: white;
+        }
+        .cta-banner p {
+            opacity: 0.9;
+            margin-bottom: 24px;
+            color: white;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .btn-white {
+            background: white;
+            color: var(--color-primary);
+        }
+        .btn-white:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        footer {
+            padding: 40px;
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        footer a { color: var(--color-primary); text-decoration: none; }
+
+        @media (max-width: 768px) {
+            header { padding: 12px 16px; }
+            .hero-section { padding: 60px 24px; }
+            .hero-section h1 { font-size: 1.8rem; }
+            main { padding: 40px 16px; }
+            .section h2 { font-size: 1.4rem; }
+            .card { padding: 20px; }
+            .cta-banner { padding: 32px 24px; }
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <header>
+        <a href="/">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <nav>
+            <a href="/app">Posture</a>
+            <a href="/yoga">Yoga</a>
+            <a href="/science" class="active">Science</a>
+            <a href="/privacy">Privacy</a>
+        </nav>
+    </header>
+
+    <section class="hero-section">
+        <h1>The Science Behind hohm.studio</h1>
+        <p>Understanding the technology, research, and methodology that powers our AI-driven yoga and posture guidance</p>
+    </section>
+
+    <main id="main-content">
+        <!-- How AI Works Section -->
+        <section class="section">
+            <h2><i data-lucide="cpu" aria-hidden="true"></i> How Our AI Works</h2>
+
+            <p>hohm.studio uses cutting-edge computer vision technology to analyze your body position in real-time. Here's a non-technical overview of how it works:</p>
+
+            <div class="card">
+                <h3>1. Camera Captures Your Movement</h3>
+                <p>Your webcam captures video at up to 30 frames per second. This video stream stays entirely on your device and is never uploaded or stored anywhere.</p>
+
+                <h3>2. AI Detects Body Landmarks</h3>
+                <p>Google's MediaPipe Pose model identifies 33 key points on your body: joints like shoulders, elbows, wrists, hips, knees, and ankles, plus points on your face and feet. This creates a "skeleton" overlay of your pose.</p>
+
+                <h3>3. Angles Are Calculated</h3>
+                <p>Our software calculates the angles between your joints. For example, the angle at your elbow when your arm is bent, or the angle at your hip in a standing pose. These angles are the mathematical foundation of pose comparison.</p>
+
+                <h3>4. Comparison with Reference</h3>
+                <p>Your current angles are compared against reference angles from correctly performed poses. The closer your angles match the reference, the higher your pose match score.</p>
+
+                <h3>5. Real-Time Feedback</h3>
+                <p>Based on the comparison, you receive instant visual and audio feedback to help you adjust your position. The entire process happens in milliseconds, creating a responsive, interactive experience.</p>
+            </div>
+
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <h4><i data-lucide="box" aria-hidden="true"></i> MediaPipe Pose</h4>
+                    <p>Google's state-of-the-art pose detection ML model, optimized for real-time performance in browsers.</p>
+                </div>
+                <div class="tech-item">
+                    <h4><i data-lucide="zap" aria-hidden="true"></i> WebGL Acceleration</h4>
+                    <p>GPU-accelerated processing ensures smooth, responsive pose detection without draining your battery.</p>
+                </div>
+                <div class="tech-item">
+                    <h4><i data-lucide="shield" aria-hidden="true"></i> Local Processing</h4>
+                    <p>All AI inference runs locally in your browser. Zero data is sent to external servers.</p>
+                </div>
+                <div class="tech-item">
+                    <h4><i data-lucide="bar-chart-2" aria-hidden="true"></i> Angle Analysis</h4>
+                    <p>Proprietary algorithms calculate and compare joint angles for accurate pose matching.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Technical Deep Dive -->
+        <section class="section">
+            <h2><i data-lucide="code" aria-hidden="true"></i> Technical Deep Dive</h2>
+
+            <p>For those interested in the technical details, here's how the pose detection pipeline works under the hood:</p>
+
+            <div class="card">
+                <h3>MediaPipe Pose Landmarker</h3>
+                <p>We use MediaPipe's <strong>Pose Landmarker</strong> task, which employs a two-stage ML pipeline:</p>
+                <ul style="margin-left: 20px; color: var(--color-text-secondary);">
+                    <li><strong>BlazePose Detector:</strong> A lightweight neural network that locates the general region of a person in the frame</li>
+                    <li><strong>BlazePose Tracker:</strong> A more detailed model that precisely locates 33 body landmarks with sub-pixel accuracy</li>
+                </ul>
+
+                <h3>Landmark Coordinates</h3>
+                <p>Each landmark is returned with normalized x, y coordinates (0-1 range relative to image size) plus a z coordinate representing depth relative to the hip midpoint. We also receive visibility and presence scores for each landmark.</p>
+
+                <h3>Angle Calculation</h3>
+                <p>Joint angles are calculated using vector mathematics. For a joint J connected to points A and B, we compute:</p>
+                <pre style="background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 0.9rem; margin: 16px 0;">angle = arccos((JA · JB) / (|JA| × |JB|))</pre>
+                <p>This gives us the angle in degrees, which we compare against reference poses stored in our database.</p>
+
+                <h3>Pose Matching Algorithm</h3>
+                <p>Our matching algorithm weights different joints based on the specific pose. For example, in Tree Pose, the angle of the lifted leg at the hip is weighted more heavily than arm position. We use an exponential scoring function that provides more granular feedback in the "close but not quite" range where small adjustments matter most.</p>
+            </div>
+        </section>
+
+        <!-- Accuracy & Limitations -->
+        <section class="section">
+            <h2><i data-lucide="target" aria-hidden="true"></i> Accuracy & Limitations</h2>
+
+            <p>We believe in transparency about what our technology can and cannot do. Here's an honest assessment:</p>
+
+            <div class="accuracy-grid">
+                <div class="accuracy-card">
+                    <div class="accuracy-value">33</div>
+                    <div class="accuracy-label">Body landmarks tracked</div>
+                </div>
+                <div class="accuracy-card">
+                    <div class="accuracy-value">~90%</div>
+                    <div class="accuracy-label">Landmark accuracy (optimal conditions)</div>
+                </div>
+                <div class="accuracy-card">
+                    <div class="accuracy-value">30</div>
+                    <div class="accuracy-label">Frames per second</div>
+                </div>
+                <div class="accuracy-card">
+                    <div class="accuracy-value">100%</div>
+                    <div class="accuracy-label">Local processing (nothing uploaded)</div>
+                </div>
+            </div>
+
+            <div class="limitation-box">
+                <h4><i data-lucide="alert-triangle" aria-hidden="true"></i> Known Limitations</h4>
+                <ul>
+                    <li><strong>Lighting:</strong> Low light or strong backlighting can reduce detection accuracy</li>
+                    <li><strong>Clothing:</strong> Very loose or flowing clothing may obscure body landmarks</li>
+                    <li><strong>Occlusion:</strong> If parts of your body are hidden from the camera, those landmarks cannot be tracked</li>
+                    <li><strong>Camera angle:</strong> Extreme angles (very high or low) may reduce accuracy</li>
+                    <li><strong>Multiple people:</strong> The system tracks one person at a time</li>
+                    <li><strong>3D estimation:</strong> Depth (z-axis) estimation is less accurate than x/y position</li>
+                </ul>
+            </div>
+
+            <p>For best results, we recommend:</p>
+            <ul style="margin-left: 20px; color: var(--color-text-secondary);">
+                <li>Practicing in a well-lit room with even lighting</li>
+                <li>Wearing form-fitting clothing that shows your body shape</li>
+                <li>Positioning your camera so your full body is visible</li>
+                <li>Standing about 6-10 feet (2-3 meters) from the camera</li>
+            </ul>
+        </section>
+
+        <!-- Ad Unit - Mid Article -->
+        <div style="margin: 40px auto; text-align: center; max-width: 728px;">
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-pub-8332216835063057"
+                 data-ad-slot="1234567892"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+        </div>
+
+        <!-- Research & Citations -->
+        <section class="section">
+            <h2><i data-lucide="book-open" aria-hidden="true"></i> Research & Citations</h2>
+
+            <p>The benefits of yoga and good posture are supported by extensive peer-reviewed research. Here are some key studies that inform our approach:</p>
+
+            <ul class="citation-list">
+                <li>
+                    <div class="citation-source">Frontiers in Psychiatry</div>
+                    <div class="citation-year">2024</div>
+                    <div class="citation-finding">"Effects of Yoga on Stress in the General Population: A Systematic Review" - Found that yoga significantly reduces perceived stress levels across diverse populations, with effects comparable to other stress-reduction interventions.</div>
+                </li>
+                <li>
+                    <div class="citation-source">Journal of Physical Therapy Science</div>
+                    <div class="citation-year">2016</div>
+                    <div class="citation-finding">Demonstrated that regular yoga practice improved hamstring flexibility by an average of 9% within six weeks, with sustained benefits for those who continued practice.</div>
+                </li>
+                <li>
+                    <div class="citation-source">Mayo Clinic Research</div>
+                    <div class="citation-year">2021</div>
+                    <div class="citation-finding">Documented that proper posture reduces strain on muscles and ligaments, decreases wear on joint surfaces, and can reduce the frequency and intensity of tension headaches.</div>
+                </li>
+                <li>
+                    <div class="citation-source">International Journal of Yoga</div>
+                    <div class="citation-year">2020</div>
+                    <div class="citation-finding">"Balance-focused yoga practice reduces cortisol levels and improves cognitive focus" - Demonstrated measurable improvements in stress hormones and executive function after 8 weeks of practice.</div>
+                </li>
+                <li>
+                    <div class="citation-source">Journal of Bodywork and Movement Therapies</div>
+                    <div class="citation-year">2018</div>
+                    <div class="citation-finding">Found that single-leg standing poses improve balance and reduce fall risk by 23% in regular practitioners, with benefits particularly pronounced in older adults.</div>
+                </li>
+                <li>
+                    <div class="citation-source">American Heart Association</div>
+                    <div class="citation-year">2020</div>
+                    <div class="citation-finding">Recognized yoga as a complementary approach to cardiovascular health, noting benefits for blood pressure, heart rate variability, and stress reduction.</div>
+                </li>
+                <li>
+                    <div class="citation-source">National Institutes of Health (NCCIH)</div>
+                    <div class="citation-year">2022</div>
+                    <div class="citation-finding">Comprehensive review found yoga helpful for managing chronic low back pain, improving sleep quality, reducing symptoms of anxiety and depression, and enhancing overall quality of life.</div>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Methodology -->
+        <section class="section">
+            <h2><i data-lucide="clipboard-list" aria-hidden="true"></i> Our Methodology</h2>
+
+            <div class="card">
+                <h3>Reference Pose Creation</h3>
+                <p>Our reference poses are created by capturing landmark data from correctly performed poses, validated against traditional yoga alignment principles. Each pose includes multiple acceptable ranges to accommodate natural variation in body proportions and flexibility levels.</p>
+
+                <h3>Session Design</h3>
+                <p>Yoga sessions are designed following established sequencing principles:</p>
+                <ul style="margin-left: 20px; color: var(--color-text-secondary);">
+                    <li>Gradual warm-up before challenging poses</li>
+                    <li>Bilateral symmetry - poses performed on both sides</li>
+                    <li>Counter-poses to balance the body</li>
+                    <li>Appropriate rest periods between holds</li>
+                    <li>Cool-down and integration at session end</li>
+                </ul>
+
+                <h3>Difficulty Progression</h3>
+                <p>Poses are categorized by difficulty level based on balance requirements, flexibility demands, and strength needs. Our algorithms suggest appropriate progressions based on your performance history.</p>
+
+                <h3>Safety First</h3>
+                <p>We prioritize safety by:</p>
+                <ul style="margin-left: 20px; color: var(--color-text-secondary);">
+                    <li>Never encouraging users to push beyond their comfortable range</li>
+                    <li>Providing clear contraindications for each pose</li>
+                    <li>Including modification options for different ability levels</li>
+                    <li>Reminding users to consult healthcare providers when appropriate</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- FAQ Section -->
+        <section class="section faq-section">
+            <h2><i data-lucide="help-circle" aria-hidden="true"></i> Frequently Asked Questions</h2>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <i data-lucide="message-circle" aria-hidden="true"></i>
+                    <span>How does AI pose detection work?</span>
+                </div>
+                <div class="faq-answer">hohm.studio uses Google's MediaPipe Pose technology, which employs a machine learning model trained on millions of images to detect 33 body landmarks in real-time. The AI identifies key points like shoulders, elbows, hips, and knees, then calculates joint angles to compare your pose against reference positions. All processing happens locally in your browser - your video never leaves your device.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <i data-lucide="message-circle" aria-hidden="true"></i>
+                    <span>How accurate is the pose detection?</span>
+                </div>
+                <div class="faq-answer">MediaPipe Pose achieves high accuracy for typical webcam conditions. Under optimal lighting and positioning, landmark detection accuracy exceeds 90%. However, factors like poor lighting, loose clothing, partial visibility, or unusual camera angles can reduce accuracy. We recommend practicing in well-lit areas with your full body visible to the camera.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <i data-lucide="message-circle" aria-hidden="true"></i>
+                    <span>Is there scientific evidence that yoga and good posture improve health?</span>
+                </div>
+                <div class="faq-answer">Yes, numerous peer-reviewed studies support the benefits of yoga and posture correction. A 2024 systematic review in Frontiers in Psychiatry found yoga significantly reduces stress. Research from Mayo Clinic and NIH links good posture to reduced back pain and improved mood. Studies in the Journal of Physical Therapy Science show yoga improves flexibility and balance.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <i data-lucide="message-circle" aria-hidden="true"></i>
+                    <span>Does the AI store or upload my video?</span>
+                </div>
+                <div class="faq-answer">No. All pose detection processing happens entirely within your web browser using WebGL acceleration. Your webcam feed is never uploaded, stored, or transmitted to any server. We cannot see your video, and no images or recordings are created unless you explicitly choose to save them locally.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <i data-lucide="message-circle" aria-hidden="true"></i>
+                    <span>Can the AI replace a yoga teacher?</span>
+                </div>
+                <div class="faq-answer">No. While our AI provides helpful real-time feedback on pose alignment, it cannot replace the personalized guidance, hands-on adjustments, and safety oversight that a qualified yoga instructor provides. We recommend using hohm.studio as a complement to, not a replacement for, professional instruction, especially for beginners or those with health concerns.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">
+                    <i data-lucide="message-circle" aria-hidden="true"></i>
+                    <span>What should I do if I have a medical condition?</span>
+                </div>
+                <div class="faq-answer">Always consult with a healthcare professional before starting any new exercise program, including yoga. Our app provides general wellness guidance and is not a substitute for medical advice. If you have injuries, chronic conditions, or are pregnant, please work with qualified professionals who can provide personalized recommendations.</div>
+            </div>
+        </section>
+
+        <!-- CTA Banner -->
+        <div class="cta-banner">
+            <h2>Ready to Experience It Yourself?</h2>
+            <p>Try our AI-powered yoga sessions or posture tracking - completely free, no account required.</p>
+            <a href="/yoga" class="btn btn-white">
+                <i data-lucide="heart" aria-hidden="true"></i> Start Yoga Session
+            </a>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy">Privacy Policy</a> | <a href="/tos">Terms of Service</a></p>
+    </footer>
+
+    <script>lucide.createIcons();</script>
+</body>
+</html>

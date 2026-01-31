@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-8332216835063057">
+    <title>Session Complete | Yoga Report | hohm.studio</title>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
+    <meta name="description" content="Your yoga session summary and wellness report. Review your practice and continue your journey.">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-bg: #fcfaf7;
+            --color-surface: #ffffff;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #2c3333;
+            --color-text-secondary: #595959; /* WCAG AA */
+            --color-good: #7c9a92;
+            --color-warning: #d4a574;
+            --color-bad: #c97b7b;
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.8;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .logo-img { height: 40px; width: auto; }
+        nav { display: flex; gap: 20px; align-items: center; }
+        nav a {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        nav a:hover { color: var(--color-primary); }
+
+        .hero {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            padding: 60px 48px;
+            text-align: center;
+        }
+        .hero-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .hero-icon i { width: 40px; height: 40px; }
+        .hero h1 {
+            font-size: 2.2rem;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+        .hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            margin-top: 32px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 500;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        .section {
+            margin-bottom: 48px;
+        }
+        .section h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section h2 i { color: var(--color-primary); width: 24px; height: 24px; }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: var(--shadow);
+        }
+
+        /* Grade Display */
+        .grade-display {
+            text-align: center;
+            padding: 32px;
+        }
+        .grade-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 3rem;
+            font-weight: 600;
+            color: white;
+        }
+        .grade-A { background: linear-gradient(135deg, #7c9a92 0%, #5a7a70 100%); }
+        .grade-B { background: linear-gradient(135deg, #a8c5be 0%, #7c9a92 100%); }
+        .grade-C { background: linear-gradient(135deg, #d4a574 0%, #c89660 100%); }
+        .grade-D { background: linear-gradient(135deg, #c97b7b 0%, #b06060 100%); }
+        .grade-label {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+        .grade-message {
+            margin-top: 16px;
+            color: var(--color-text);
+            font-size: 1.1rem;
+        }
+
+        /* Pose Performance */
+        .pose-performance {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .performance-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 12px;
+            align-items: center;
+        }
+        .performance-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        .performance-info {
+            flex: 1;
+        }
+        .performance-info h4 {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .variation-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 500;
+            background: linear-gradient(135deg, var(--color-primary), #4ade80);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: 8px;
+            vertical-align: middle;
+            text-transform: capitalize;
+        }
+        .performance-info .learning {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+        .performance-score {
+            text-align: right;
+        }
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .score-good { color: var(--color-good); }
+        .score-okay { color: var(--color-warning); }
+        .score-needs-work { color: var(--color-bad); }
+        .score-label {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+        }
+        .performance-link {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .performance-link:hover { text-decoration: underline; }
+
+        /* Understanding Your Body */
+        .body-insights {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .insight-card {
+            padding: 20px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 12px;
+        }
+        .insight-card h4 {
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .insight-card h4 i { color: var(--color-primary); width: 18px; height: 18px; }
+        .insight-card p {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* Next Sessions */
+        .next-sessions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .next-session-card {
+            padding: 24px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .next-session-card:hover {
+            background: rgba(124, 154, 146, 0.1);
+            transform: translateY(-4px);
+        }
+        .next-session-card i {
+            color: var(--color-primary);
+            margin-bottom: 12px;
+        }
+        .next-session-card h4 {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .next-session-card p {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* CTA */
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 32px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(124, 154, 146, 0.3);
+        }
+        .btn-secondary {
+            background: var(--color-surface);
+            border: 2px solid var(--color-primary);
+            color: var(--color-primary);
+        }
+        .btn-secondary:hover {
+            background: rgba(124, 154, 146, 0.1);
+        }
+
+        footer {
+            padding: 40px;
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        footer a { color: var(--color-primary); text-decoration: none; }
+
+        @media (max-width: 768px) {
+            header { padding: 12px 16px; }
+            .hero { padding: 40px 16px; }
+            .hero h1 { font-size: 1.6rem; }
+            .stats-bar { gap: 30px; }
+            main { padding: 24px 16px; }
+            .performance-item { flex-wrap: wrap; }
+            .performance-score { width: 100%; text-align: left; margin-top: 8px; }
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <header>
+        <a href="/">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <nav>
+            <a href="/yoga">Yoga</a>
+            <a href="/science">Science</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div class="hero-icon">
+            <i data-lucide="check-circle" aria-hidden="true"></i>
+        </div>
+        <h1>Session Complete!</h1>
+        <p>Great work on your practice today</p>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="duration-stat">--</div>
+                <div class="stat-label">Minutes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="poses-stat">--</div>
+                <div class="stat-label">Poses</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avg-score-stat">--%</div>
+                <div class="stat-label">Avg Match</div>
+            </div>
+        </div>
+    </section>
+
+    <main id="main-content">
+        <!-- Session Grade -->
+        <section class="section">
+            <h2><i data-lucide="award" aria-hidden="true"></i> Your Session Grade</h2>
+            <div class="card">
+                <div class="grade-display">
+                    <div class="grade-circle grade-B" id="grade-circle">B</div>
+                    <div class="grade-label">Overall Performance</div>
+                    <div class="grade-message" id="grade-message">Good work! You maintained solid form throughout most poses.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Your Practice Today -->
+        <section class="section">
+            <h2><i data-lucide="activity" aria-hidden="true"></i> Your Practice Today</h2>
+            <div class="card">
+                <div class="pose-performance" id="pose-performance">
+                    <!-- Populated by JavaScript -->
+                    <p style="color: var(--color-text-secondary); text-align: center;">Loading your session data...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Understanding Your Body -->
+        <section class="section">
+            <h2><i data-lucide="heart" aria-hidden="true"></i> Understanding Your Body</h2>
+            <div class="card">
+                <div class="body-insights">
+                    <div class="insight-card">
+                        <h4><i data-lucide="trending-up" aria-hidden="true"></i> Strength Areas</h4>
+                        <p>Your balance poses showed great stability. The core engagement and focus you demonstrated are key indicators of developing strength.</p>
+                    </div>
+                    <div class="insight-card">
+                        <h4><i data-lucide="target" aria-hidden="true"></i> Growth Opportunities</h4>
+                        <p>Consider spending more time on hip-opening poses. Flexibility in the hips improves overall posture and reduces lower back tension.</p>
+                    </div>
+                    <div class="insight-card">
+                        <h4><i data-lucide="clock" aria-hidden="true"></i> Consistency Matters</h4>
+                        <p>Research shows that practicing yoga 2-3 times per week produces the best results for flexibility and stress reduction.</p>
+                    </div>
+                    <div class="insight-card">
+                        <h4><i data-lucide="zap" aria-hidden="true"></i> Recovery Tip</h4>
+                        <p>Stay hydrated and consider a few minutes of gentle stretching before bed to maximize the benefits of today's practice.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Continue Your Journey -->
+        <section class="section">
+            <h2><i data-lucide="compass" aria-hidden="true"></i> Continue Your Journey</h2>
+            <div class="card">
+                <div class="next-sessions">
+                    <a href="/yoga?focus=flexibility" class="next-session-card">
+                        <i data-lucide="move" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Flexibility Focus</h4>
+                        <p>Deepen your stretches and improve range of motion</p>
+                    </a>
+                    <a href="/yoga?focus=strength" class="next-session-card">
+                        <i data-lucide="dumbbell" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Strength Building</h4>
+                        <p>Build muscle endurance and core stability</p>
+                    </a>
+                    <a href="/yoga?focus=balance" class="next-session-card">
+                        <i data-lucide="scale" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Balance Practice</h4>
+                        <p>Improve coordination and body awareness</p>
+                    </a>
+                    <a href="/yoga?focus=relaxation" class="next-session-card">
+                        <i data-lucide="moon" style="width: 32px; height: 32px;" aria-hidden="true"></i>
+                        <h4>Relaxation Flow</h4>
+                        <p>Wind down with gentle, calming poses</p>
+                    </a>
+                </div>
+
+                <div class="cta-buttons">
+                    <a href="/yoga" class="btn btn-primary">
+                        <i data-lucide="repeat" aria-hidden="true"></i> Start Another Session
+                    </a>
+                    <a href="/yoga" class="btn btn-secondary">
+                        <i data-lucide="book-open" aria-hidden="true"></i> Explore Poses
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy">Privacy Policy</a> | <a href="/tos">Terms of Service</a></p>
+    </footer>
+
+    <script>
+        // Learning snippets for each pose
+        const poseLearnings = {
+            'ardhachandrasana': 'Half Moon builds lateral hip stability - key for injury prevention in daily movements.',
+            'baddhakonasana': 'Butterfly opens the hips, which research links to reduced lower back tension.',
+            'downward-dog': 'Down Dog decompresses the spine while building shoulder strength.',
+            'natarajasana': 'Dancer pose develops the mind-body connection through challenging balance.',
+            'triangle': 'Triangle strengthens the lateral body, often neglected in typical exercise.',
+            'utkatakonasana': 'Goddess pose builds heat and strengthens the pelvic floor muscles.',
+            'veerabhadrasana': 'Warrior poses build mental resilience alongside physical strength.',
+            'vrukshasana': 'Tree pose activates the prefrontal cortex, improving focus and stress management.'
+        };
+
+        // Grade messages
+        const gradeMessages = {
+            'A': 'Excellent work! Your form was outstanding throughout the session.',
+            'B': 'Good work! You maintained solid form throughout most poses.',
+            'C': 'Nice effort! Keep practicing and your form will continue to improve.',
+            'D': 'You completed the session - that\'s what matters most. Each practice builds on the last.'
+        };
+
+        // Try to load session data from localStorage
+        function loadSessionData() {
+            const sessionData = localStorage.getItem('lastYogaSession');
+            if (sessionData) {
+                try {
+                    return JSON.parse(sessionData);
+                } catch (e) {
+                    console.error('Failed to parse session data:', e);
+                }
+            }
+            // Return mock data if no real data available
+            return {
+                duration: 15,
+                poses: [
+                    { id: 'vrukshasana', name: 'Tree', sanskrit: 'Vrksasana', image: '/static/images/poses/tree.png', avgScore: 78 },
+                    { id: 'veerabhadrasana', name: 'Warrior', sanskrit: 'Virabhadrasana', image: '/static/images/poses/warrior.png', avgScore: 82 },
+                    { id: 'triangle', name: 'Triangle', sanskrit: 'Trikonasana', image: '/static/images/poses/triangle.png', avgScore: 65 }
+                ],
+                avgScore: 75,
+                formTracking: { perfect: 120, good: 180, okay: 90, needsWork: 30 }
+            };
+        }
+
+        function calculateGrade(avgScore, formTracking) {
+            const totalTime = formTracking.perfect + formTracking.good + formTracking.okay + formTracking.needsWork;
+            const goodTimeRatio = (formTracking.perfect + formTracking.good) / totalTime;
+
+            if (avgScore >= 80 && goodTimeRatio >= 0.7) return 'A';
+            if (avgScore >= 65 && goodTimeRatio >= 0.5) return 'B';
+            if (avgScore >= 50 && goodTimeRatio >= 0.3) return 'C';
+            return 'D';
+        }
+
+        function getScoreClass(score) {
+            if (score >= 70) return 'score-good';
+            if (score >= 50) return 'score-okay';
+            return 'score-needs-work';
+        }
+
+        function renderSessionReport() {
+            const data = loadSessionData();
+
+            // Update stats
+            document.getElementById('duration-stat').textContent = data.duration || '--';
+            document.getElementById('poses-stat').textContent = data.poses?.length || '--';
+            document.getElementById('avg-score-stat').textContent = `${Math.round(data.avgScore || 0)}%`;
+
+            // Calculate and display grade
+            const grade = calculateGrade(data.avgScore || 0, data.formTracking || { perfect: 0, good: 0, okay: 0, needsWork: 0 });
+            const gradeCircle = document.getElementById('grade-circle');
+            gradeCircle.textContent = grade;
+            gradeCircle.className = `grade-circle grade-${grade}`;
+            document.getElementById('grade-message').textContent = gradeMessages[grade];
+
+            // Render pose performance
+            const container = document.getElementById('pose-performance');
+            if (!data.poses || data.poses.length === 0) {
+                container.innerHTML = '<p style="color: var(--color-text-secondary); text-align: center;">No pose data available</p>';
+                return;
+            }
+
+            container.innerHTML = data.poses.map(pose => `
+                <div class="performance-item">
+                    <img src="${pose.image}" alt="${pose.name}" class="performance-image">
+                    <div class="performance-info">
+                        <h4>${pose.name}${pose.variation ? ` <span class="variation-badge">${pose.variation.name}</span>` : ''}</h4>
+                        <p class="learning">${poseLearnings[pose.id] || pose.sanskrit}</p>
+                        <a href="/yoga/poses/${pose.id}" class="performance-link">
+                            Learn more <i data-lucide="arrow-right" style="width: 14px; height: 14px;" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                    <div class="performance-score">
+                        <div class="score-value ${getScoreClass(pose.avgScore)}">${Math.round(pose.avgScore)}%</div>
+                        <div class="score-label">Match Score</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Re-initialize lucide icons for dynamically added content
+            lucide.createIcons();
+        }
+
+        renderSessionReport();
+    </script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

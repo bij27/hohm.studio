@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-8332216835063057">
+    <title>{{ pose.name }} ({{ pose.sanskrit }}) | Yoga Pose Guide | hohm.studio</title>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
+    <meta name="description" content="Learn {{ pose.name }} ({{ pose.sanskrit }}) - {{ knowledge.anatomical_focus.description[:160] if knowledge else pose.benefits }}">
+    <meta name="keywords" content="{{ pose.name }}, {{ pose.sanskrit }}, yoga pose, {{ ', '.join(pose.focus) }}, {{ pose.difficulty }} yoga, yoga guide">
+    <link rel="canonical" href="https://hohm.studio/yoga/poses/{{ pose.id }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://hohm.studio/yoga/poses/{{ pose.id }}">
+    <meta property="og:title" content="{{ pose.name }} ({{ pose.sanskrit }}) - Yoga Pose Guide">
+    <meta property="og:description" content="Learn how to practice {{ pose.name }}, a {{ pose.difficulty }} {{ pose.category }} yoga pose for {{ ', '.join(pose.focus) }}.">
+    <meta property="og:image" content="https://hohm.studio{{ pose.image }}">
+
+    <!-- Schema.org ExerciseAction markup -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ExerciseAction",
+      "name": "{{ pose.name }}",
+      "alternateName": "{{ pose.sanskrit }}",
+      "description": "{{ pose.benefits }}",
+      "exerciseType": "Yoga",
+      "image": "https://hohm.studio{{ pose.image }}",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://hohm.studio/yoga/poses/{{ pose.id }}"
+      },
+      "associatedAnatomy": {
+        "@type": "AnatomicalStructure",
+        "name": "{{ knowledge.anatomical_focus.primary_muscles|join(', ') if knowledge else 'Multiple muscle groups' }}"
+      }
+    }
+    </script>
+
+    <!-- Article schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "{{ pose.name }} ({{ pose.sanskrit }}) - Complete Yoga Pose Guide",
+      "description": "Comprehensive guide to {{ pose.name }}, including anatomy, benefits, safety, history, and practice tips.",
+      "image": "https://hohm.studio{{ pose.image }}",
+      "author": {
+        "@type": "Organization",
+        "name": "hohm.studio"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "hohm.studio",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://hohm.studio/static/images/logo.png"
+        }
+      },
+      "datePublished": "2026-01-29"
+    }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-bg: #fcfaf7;
+            --color-surface: #ffffff;
+            --color-primary: #7c9a92;
+            --color-primary-light: #a8c5be;
+            --color-accent: #d4a574;
+            --color-text: #2c3333;
+            --color-text-secondary: #595959; /* WCAG AA */
+            --color-good: #7c9a92;
+            --color-bad: #c97b7b;
+            --radius: 20px;
+            --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.8;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 48px;
+            background: var(--color-surface);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo-img { height: 40px; width: auto; }
+        nav { display: flex; gap: 20px; align-items: center; }
+        nav a {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+        nav a:hover { color: var(--color-primary); }
+
+        .hero {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            padding: 60px 48px;
+        }
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+        .pose-image-hero {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: var(--radius);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+        .hero-text h1 {
+            font-size: 2.5rem;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+        .hero-text .sanskrit {
+            font-size: 1.4rem;
+            font-style: italic;
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+        .hero-text .pronunciation {
+            font-size: 0.95rem;
+            opacity: 0.7;
+            margin-bottom: 16px;
+        }
+        .pose-tags {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .pose-tag {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .hero-summary {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+        }
+        .btn-practice {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding: 14px 28px;
+            background: white;
+            color: var(--color-primary);
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .btn-practice:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 48px 24px;
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 40px;
+        }
+
+        .content-section {
+            margin-bottom: 40px;
+        }
+        .content-section h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 20px;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .content-section h2 i { color: var(--color-primary); width: 24px; height: 24px; }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .anatomy-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .anatomy-group h4 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+        }
+        .anatomy-group ul {
+            list-style: none;
+        }
+        .anatomy-group li {
+            padding: 4px 0;
+            color: var(--color-text);
+            font-size: 0.95rem;
+        }
+
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+        .benefits-column h4 {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .benefits-column ul {
+            list-style: none;
+        }
+        .benefits-column li {
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+        .benefits-column li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 12px;
+            width: 6px;
+            height: 6px;
+            background: var(--color-primary);
+            border-radius: 50%;
+        }
+
+        .safety-box {
+            background: rgba(212, 165, 116, 0.1);
+            border-left: 3px solid var(--color-accent);
+            border-radius: 0 12px 12px 0;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+        .safety-box h4 {
+            color: var(--color-accent);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .safety-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .safety-grid h5 {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--color-text);
+        }
+        .safety-grid ul {
+            list-style: disc;
+            padding-left: 18px;
+        }
+        .safety-grid li {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .tips-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        .tip-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 10px;
+        }
+        .tip-item i {
+            color: var(--color-primary);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .tip-item span {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .mistakes-list {
+            list-style: none;
+        }
+        .mistakes-list li {
+            padding: 10px 0;
+            padding-left: 28px;
+            position: relative;
+            color: var(--color-text-secondary);
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .mistakes-list li:last-child { border-bottom: none; }
+        .mistakes-list li::before {
+            content: '✗';
+            position: absolute;
+            left: 0;
+            color: var(--color-bad);
+            font-weight: 600;
+        }
+
+        .collapsible-section {
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .collapsible-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            cursor: pointer;
+        }
+        .collapsible-header h3 {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        .collapsible-content {
+            padding-bottom: 20px;
+            color: var(--color-text-secondary);
+        }
+        .collapsible-content.collapsed {
+            display: none;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+        }
+        .sidebar-card {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .sidebar-card h3 {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-card h3 i { color: var(--color-primary); width: 18px; height: 18px; }
+
+        .related-poses {
+            display: grid;
+            gap: 12px;
+        }
+        .related-pose-card {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(124, 154, 146, 0.05);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .related-pose-card:hover {
+            background: rgba(124, 154, 146, 0.1);
+            transform: translateX(4px);
+        }
+        .related-pose-card img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        .related-pose-info h4 {
+            font-size: 0.9rem;
+            color: var(--color-text);
+            margin-bottom: 2px;
+        }
+        .related-pose-info span {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .citation-list {
+            list-style: none;
+        }
+        .citation-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        .citation-item:last-child { border-bottom: none; }
+        .citation-source {
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: var(--color-text);
+        }
+        .citation-year {
+            font-size: 0.75rem;
+            color: var(--color-accent);
+        }
+        .citation-finding {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            margin-top: 4px;
+        }
+
+        .breadcrumb {
+            padding: 12px 48px;
+            background: var(--color-surface);
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+        .breadcrumb a {
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        footer {
+            padding: 40px;
+            text-align: center;
+            color: var(--color-text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(124, 154, 146, 0.1);
+        }
+        footer a { color: var(--color-primary); text-decoration: none; }
+
+        @media (max-width: 900px) {
+            .hero-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            .pose-image-hero {
+                width: 200px;
+                margin: 0 auto;
+            }
+            .pose-tags { justify-content: center; }
+            main {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                position: static;
+            }
+            .benefits-grid, .safety-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            header { padding: 12px 16px; }
+            .hero { padding: 40px 16px; }
+            .hero-text h1 { font-size: 1.8rem; }
+            .breadcrumb { padding: 12px 16px; }
+            main { padding: 24px 16px; }
+            .card { padding: 20px; }
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <header>
+        <a href="/">
+            <img src="/static/images/navbar_logo.png?v=3" alt="hohm.studio" class="logo-img">
+        </a>
+        <nav>
+            <a href="/app">Posture</a>
+            <a href="/yoga">Yoga</a>
+            <a href="/science">Science</a>
+            <a href="/privacy">Privacy</a>
+        </nav>
+    </header>
+
+    <div class="breadcrumb">
+        <a href="/">Home</a> / <a href="/yoga">Yoga</a> / <a href="/yoga">Poses</a> / {{ pose.name }}
+    </div>
+
+    <section class="hero">
+        <div class="hero-content">
+            <img src="{{ pose.image }}" alt="{{ pose.name }} yoga pose" class="pose-image-hero">
+            <div class="hero-text">
+                <h1>{{ pose.name }}</h1>
+                <div class="sanskrit">{{ pose.sanskrit }}</div>
+                {% if knowledge and knowledge.pronunciation %}
+                <div class="pronunciation">{{ knowledge.pronunciation }}</div>
+                {% endif %}
+                <div class="pose-tags">
+                    <span class="pose-tag">{{ pose.category|capitalize }}</span>
+                    <span class="pose-tag">{{ pose.difficulty|capitalize }}</span>
+                    {% for focus in pose.focus %}
+                    <span class="pose-tag">{{ focus|capitalize }}</span>
+                    {% endfor %}
+                </div>
+                <p class="hero-summary">{{ pose.benefits }}</p>
+                <a href="/yoga?pose={{ pose.id }}" class="btn-practice">
+                    <i data-lucide="play" aria-hidden="true"></i> Practice This Pose
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <main id="main-content">
+        <div class="main-content">
+            <!-- Etymology / Origin -->
+            {% if knowledge and knowledge.etymology %}
+            <section class="content-section">
+                <h2><i data-lucide="book" aria-hidden="true"></i> Etymology & Meaning</h2>
+                <div class="card">
+                    <p>{{ knowledge.etymology }}</p>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Anatomical Focus -->
+            <section class="content-section">
+                <h2><i data-lucide="activity" aria-hidden="true"></i> Anatomical Focus</h2>
+                <div class="card">
+                    {% if knowledge and knowledge.anatomical_focus %}
+                    <div class="anatomy-list">
+                        <div class="anatomy-group">
+                            <h4>Primary Muscles</h4>
+                            <ul>
+                                {% for muscle in knowledge.anatomical_focus.primary_muscles %}
+                                <li>{{ muscle|capitalize }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="anatomy-group">
+                            <h4>Secondary Muscles</h4>
+                            <ul>
+                                {% for muscle in knowledge.anatomical_focus.secondary_muscles %}
+                                <li>{{ muscle|capitalize }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="anatomy-group">
+                            <h4>Joints Engaged</h4>
+                            <ul>
+                                {% for joint in knowledge.anatomical_focus.joints_engaged %}
+                                <li>{{ joint|capitalize }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    <p>{{ knowledge.anatomical_focus.description }}</p>
+                    {% else %}
+                    <p>{{ pose.name }} engages multiple muscle groups throughout the body, building strength, flexibility, and body awareness.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- Therapeutic Benefits -->
+            <section class="content-section">
+                <h2><i data-lucide="heart" aria-hidden="true"></i> Therapeutic Benefits</h2>
+                <div class="card">
+                    {% if knowledge and knowledge.therapeutic_benefits %}
+                    <div class="benefits-grid">
+                        <div class="benefits-column">
+                            <h4><i data-lucide="body" aria-hidden="true"></i> Physical Benefits</h4>
+                            <ul>
+                                {% for benefit in knowledge.therapeutic_benefits.physical %}
+                                <li>{{ benefit }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="benefits-column">
+                            <h4><i data-lucide="brain" aria-hidden="true"></i> Mental Benefits</h4>
+                            <ul>
+                                {% for benefit in knowledge.therapeutic_benefits.mental %}
+                                <li>{{ benefit }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    <p>{{ knowledge.therapeutic_benefits.description }}</p>
+                    {% else %}
+                    <p>{{ pose.benefits }}</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- Safety & Contraindications -->
+            <section class="content-section">
+                <h2><i data-lucide="shield-alert" aria-hidden="true"></i> Safety & Contraindications</h2>
+                {% if knowledge and knowledge.safety_contraindications %}
+                <div class="safety-box">
+                    <h4><i data-lucide="alert-triangle" aria-hidden="true"></i> Important Safety Information</h4>
+                    <div class="safety-grid">
+                        <div>
+                            <h5>Avoid this pose if you have:</h5>
+                            <ul>
+                                {% for condition in knowledge.safety_contraindications.avoid_if %}
+                                <li>{{ condition }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div>
+                            <h5>Modify if you have:</h5>
+                            <ul>
+                                {% for mod in knowledge.safety_contraindications.modify_if %}
+                                <li>{{ mod }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <p>{{ knowledge.safety_contraindications.description }}</p>
+                </div>
+                {% else %}
+                <div class="safety-box">
+                    <h4><i data-lucide="alert-triangle" aria-hidden="true"></i> General Safety</h4>
+                    <p>Always listen to your body and never force yourself into a position that causes pain. Consult a healthcare professional if you have any injuries or health conditions.</p>
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- Practice Tips -->
+            <section class="content-section">
+                <h2><i data-lucide="lightbulb" aria-hidden="true"></i> Practice Tips</h2>
+                <div class="card">
+                    <div class="tips-list">
+                        {% if knowledge and knowledge.practice_tips %}
+                        {% for tip in knowledge.practice_tips %}
+                        <div class="tip-item">
+                            <i data-lucide="check-circle" style="width: 18px; height: 18px;" aria-hidden="true"></i>
+                            <span>{{ tip }}</span>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        {% for instruction in pose.instructions %}
+                        <div class="tip-item">
+                            <i data-lucide="check-circle" style="width: 18px; height: 18px;" aria-hidden="true"></i>
+                            <span>{{ instruction }}</span>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <!-- Common Mistakes -->
+            {% if knowledge and knowledge.common_mistakes %}
+            <section class="content-section">
+                <h2><i data-lucide="x-circle" aria-hidden="true"></i> Common Mistakes to Avoid</h2>
+                <div class="card">
+                    <ul class="mistakes-list">
+                        {% for mistake in knowledge.common_mistakes %}
+                        <li>{{ mistake }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- History & Philosophy (Collapsible) -->
+            {% if knowledge and knowledge.history_philosophy %}
+            <section class="content-section">
+                <h2><i data-lucide="scroll" aria-hidden="true"></i> History & Philosophy</h2>
+                <div class="card">
+                    <p>{{ knowledge.history_philosophy }}</p>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Instructions -->
+            <section class="content-section">
+                <h2><i data-lucide="list-ordered" aria-hidden="true"></i> Step-by-Step Instructions</h2>
+                <div class="card">
+                    <ol style="padding-left: 20px; color: var(--color-text-secondary);">
+                        {% for instruction in pose.instructions %}
+                        <li style="padding: 8px 0;">{{ instruction }}</li>
+                        {% endfor %}
+                    </ol>
+                    <p style="margin-top: 16px; font-size: 0.9rem;">Hold for {{ pose.duration_seconds[0] }}-{{ pose.duration_seconds[1] }} seconds, breathing steadily throughout.</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Quick Practice CTA -->
+            <div class="sidebar-card" style="background: var(--color-primary); color: white;">
+                <h3 style="color: white;"><i data-lucide="play" style="color: white;" aria-hidden="true"></i> Practice Now</h3>
+                <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 16px;">Try {{ pose.name }} with real-time AI feedback</p>
+                <a href="/yoga?pose={{ pose.id }}" class="btn-practice" style="width: 100%; justify-content: center; margin-top: 0;">
+                    Start Session
+                </a>
+            </div>
+
+            <!-- Progressions -->
+            {% if knowledge and knowledge.progressions %}
+            <div class="sidebar-card">
+                <h3><i data-lucide="trending-up" aria-hidden="true"></i> Progressions</h3>
+                <div style="margin-bottom: 16px;">
+                    <h4 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-text-secondary); margin-bottom: 8px;">Easier Variation</h4>
+                    <p style="font-size: 0.9rem; color: var(--color-text-secondary);">{{ knowledge.progressions.easier_variation }}</p>
+                </div>
+                <div>
+                    <h4 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--color-text-secondary); margin-bottom: 8px;">Advanced Variation</h4>
+                    <p style="font-size: 0.9rem; color: var(--color-text-secondary);">{{ knowledge.progressions.advanced_variation }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Related Poses -->
+            <div class="sidebar-card">
+                <h3><i data-lucide="git-branch" aria-hidden="true"></i> Related Poses</h3>
+                <div class="related-poses">
+                    {% for related in related_poses[:4] %}
+                    <a href="/yoga/poses/{{ related.id }}" class="related-pose-card">
+                        <img src="{{ related.image }}" alt="{{ related.name }}">
+                        <div class="related-pose-info">
+                            <h4>{{ related.name }}</h4>
+                            <span>{{ related.difficulty|capitalize }}</span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Citations -->
+            {% if knowledge and knowledge.citations %}
+            <div class="sidebar-card">
+                <h3><i data-lucide="book-open" aria-hidden="true"></i> Research Citations</h3>
+                <ul class="citation-list">
+                    {% for citation in knowledge.citations %}
+                    <li class="citation-item">
+                        <div class="citation-source">{{ citation.source }}</div>
+                        <div class="citation-year">{{ citation.year }}</div>
+                        <div class="citation-finding">{{ citation.finding }}</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </aside>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 hohm.studio - Mindful Posture Tracking. <a href="/privacy">Privacy Policy</a> | <a href="/tos">Terms of Service</a></p>
+    </footer>
+
+    <script>lucide.createIcons();</script>
+</body>
+</html>

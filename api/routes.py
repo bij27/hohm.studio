@@ -30,11 +30,6 @@ async def landing_page(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-@router.get("/app", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse("app.html", {"request": request})
-
-
 @router.get("/sessions", response_class=HTMLResponse)
 async def sessions_page(request: Request):
     return templates.TemplateResponse("sessions.html", {"request": request})

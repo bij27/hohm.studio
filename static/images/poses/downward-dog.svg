@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 100" fill="#7c9a92">
-  <!-- Downward Dog - Inverted V shape -->
-  <circle cx="110" cy="70" r="8"/> <!-- Head (down) -->
-  <line x1="105" y1="65" x2="70" y2="25" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Torso -->
-  <line x1="70" y1="25" x2="30" y2="80" stroke="#7c9a92" stroke-width="4" stroke-linecap="round"/> <!-- Legs -->
-  <line x1="105" y1="65" x2="125" y2="85" stroke="#7c9a92" stroke-width="3" stroke-linecap="round"/> <!-- Arms -->
-  <circle cx="30" cy="85" r="5"/> <!-- Feet -->
-  <circle cx="125" cy="90" r="4"/> <!-- Hands -->
-</svg>

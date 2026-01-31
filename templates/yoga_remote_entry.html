@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
     <!-- Lucide Icons -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
     <style>
         :root {
             --color-bg: #fcfaf7;
@@ -16,7 +17,7 @@
             --color-primary-light: #a8c5be;
             --color-accent: #d4a574;
             --color-text: #2c3333;
-            --color-text-secondary: #6b7575;
+            --color-text-secondary: #595959; /* WCAG AA */
             --color-error: #c97b7b;
             --radius: 20px;
             --shadow: 0 10px 30px rgba(124, 154, 146, 0.1);
@@ -64,22 +65,23 @@
 
         .code-inputs {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             justify-content: center;
             margin-bottom: 24px;
         }
 
         .code-input {
-            width: 60px;
-            height: 70px;
-            font-size: 2rem;
+            width: 46px;
+            height: 58px;
+            font-size: 1.5rem;
             text-align: center;
             border: 2px solid rgba(124, 154, 146, 0.3);
-            border-radius: 12px;
+            border-radius: 10px;
             background: var(--color-bg);
             color: var(--color-text);
             font-family: inherit;
             transition: all 0.2s;
+            text-transform: uppercase;
         }
 
         .code-input:focus {
@@ -91,6 +93,11 @@
         .code-input.filled {
             border-color: var(--color-primary);
             background: rgba(124, 154, 146, 0.1);
+        }
+
+        @media (max-width: 380px) {
+            .code-inputs { gap: 5px; }
+            .code-input { width: 40px; height: 50px; font-size: 1.3rem; }
         }
 
         .btn {
@@ -148,45 +155,52 @@
     </style>
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <main id="main-content">
     <div class="container">
         <img src="/static/images/logo.png?v=4" alt="hohm.studio" class="logo">
         <h1>Connect Remote</h1>
-        <p class="subtitle">Enter the 4-digit code from your yoga session</p>
+        <p class="subtitle">Scan the QR code on screen, or enter the 6-character code</p>
 
         {% if error %}
         <div class="error-message">{{ error }}</div>
         {% endif %}
 
         <form id="code-form" action="/yoga/remote/" method="get">
-            <div class="code-inputs">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" required>
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" required>
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" required>
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" required>
+            <div class="code-inputs" role="group" aria-label="6-character connection code">
+                <input type="text" class="code-input" maxlength="1" inputmode="text" autocomplete="off" required aria-label="Character 1 of 6">
+                <input type="text" class="code-input" maxlength="1" inputmode="text" autocomplete="off" required aria-label="Character 2 of 6">
+                <input type="text" class="code-input" maxlength="1" inputmode="text" autocomplete="off" required aria-label="Character 3 of 6">
+                <input type="text" class="code-input" maxlength="1" inputmode="text" autocomplete="off" required aria-label="Character 4 of 6">
+                <input type="text" class="code-input" maxlength="1" inputmode="text" autocomplete="off" required aria-label="Character 5 of 6">
+                <input type="text" class="code-input" maxlength="1" inputmode="text" autocomplete="off" required aria-label="Character 6 of 6">
             </div>
 
-            <button type="submit" class="btn btn-primary" id="connect-btn" disabled><i data-lucide="link" style="margin-right: 8px;"></i>Connect</button>
+            <button type="submit" class="btn btn-primary" id="connect-btn" disabled><i data-lucide="link" style="margin-right: 8px;" aria-hidden="true"></i>Connect</button>
         </form>
 
         <div class="instructions">
-            <strong>How to use:</strong>
+            <strong>How to connect:</strong>
             <ol>
                 <li>Start a yoga session on your computer</li>
-                <li>Look for the 4-digit code on screen</li>
-                <li>Enter the code above to connect</li>
+                <li><strong>Easiest:</strong> Scan the QR code with your phone camera</li>
+                <li>Or enter the 6-character code shown on screen</li>
             </ol>
         </div>
     </div>
+    </main>
 
     <script>
         const inputs = document.querySelectorAll('.code-input');
         const form = document.getElementById('code-form');
         const connectBtn = document.getElementById('connect-btn');
+        const CODE_LENGTH = 6;
 
-        // Handle input and auto-focus
+        // Handle input and auto-focus (alphanumeric, uppercase)
         inputs.forEach((input, index) => {
             input.addEventListener('input', (e) => {
-                const value = e.target.value.replace(/[^0-9]/g, '');
+                // Allow only alphanumeric, convert to uppercase
+                const value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                 e.target.value = value;
 
                 if (value && index < inputs.length - 1) {
@@ -210,17 +224,17 @@
             input.addEventListener('paste', (e) => {
                 e.preventDefault();
                 const paste = (e.clipboardData || window.clipboardData).getData('text');
-                const digits = paste.replace(/[^0-9]/g, '').slice(0, 4);
+                const chars = paste.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, CODE_LENGTH);
 
-                digits.split('').forEach((digit, i) => {
+                chars.split('').forEach((char, i) => {
                     if (inputs[i]) {
-                        inputs[i].value = digit;
+                        inputs[i].value = char;
                         inputs[i].classList.add('filled');
                     }
                 });
 
-                if (digits.length > 0) {
-                    inputs[Math.min(digits.length, 3)].focus();
+                if (chars.length > 0) {
+                    inputs[Math.min(chars.length, CODE_LENGTH - 1)].focus();
                 }
                 updateButtonState();
             });
@@ -228,20 +242,32 @@
 
         function updateButtonState() {
             const code = Array.from(inputs).map(i => i.value).join('');
-            connectBtn.disabled = code.length !== 4;
+            connectBtn.disabled = code.length !== CODE_LENGTH;
+        }
+
+        function showError(message) {
+            // Check if error div exists, create if not
+            let errorDiv = document.querySelector('.error-message');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                form.parentNode.insertBefore(errorDiv, form);
+            }
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
         }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const code = Array.from(inputs).map(i => i.value).join('');
+            const code = Array.from(inputs).map(i => i.value).join('').toUpperCase();
 
-            if (code.length !== 4) return;
+            if (code.length !== CODE_LENGTH) return;
 
             connectBtn.disabled = true;
             connectBtn.innerHTML = '<i data-lucide="hourglass" style="margin-right: 8px;"></i>Connecting...';
             lucide.createIcons();
 
-            // Check if room exists
+            // Check if room exists (with rate limiting)
             try {
                 const response = await fetch(`/api/yoga/room/${code}`);
                 const data = await response.json();
@@ -249,14 +275,15 @@
                 if (data.exists) {
                     window.location.href = `/yoga/remote/${code}`;
                 } else {
-                    alert('Room not found. Check the code and try again.');
+                    showError(data.error || 'Room not found. Check the code and try again.');
                     connectBtn.disabled = false;
                     connectBtn.innerHTML = '<i data-lucide="link" style="margin-right: 8px;"></i>Connect';
                     lucide.createIcons();
                     inputs[0].focus();
+                    inputs[0].select();
                 }
             } catch (error) {
-                alert('Connection error. Please try again.');
+                showError('Connection error. Please try again.');
                 connectBtn.disabled = false;
                 connectBtn.innerHTML = '<i data-lucide="link" style="margin-right: 8px;"></i>Connect';
                 lucide.createIcons();

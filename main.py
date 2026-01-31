@@ -13,6 +13,9 @@ from middleware.security import SecurityMiddleware, RequestValidationMiddleware,
 from websocket_manager import ws_manager
 import asyncio
 from yoga_voice import generate_session_voice_script
+from services.session_manifest import generate_manifest
+from services.audit_logger import ManifestValidator
+from utils.network import get_client_ip
 import os
 import config as cfg
 
@@ -116,21 +119,102 @@ templates = Jinja2Templates(directory="templates")
 async def privacy_page(request: Request):
     return templates.TemplateResponse("privacy.html", {"request": request})
 
+@app.get("/calibrate")
+async def calibrate_page(request: Request):
+    return templates.TemplateResponse("calibrate.html", {"request": request})
+
+@app.get("/tos")
+async def tos_page(request: Request):
+    return templates.TemplateResponse("tos.html", {"request": request})
+
+@app.get("/science")
+async def science_page(request: Request):
+    return templates.TemplateResponse("science.html", {"request": request})
+
 @app.get("/app")
 async def app_page(request: Request):
-    return templates.TemplateResponse("app.html", {"request": request})
+    return templates.TemplateResponse("app.html", {"request": request, "show_ads": False})
 
 @app.get("/yoga")
 async def yoga_page(request: Request):
     return templates.TemplateResponse("yoga.html", {"request": request})
 
+
+def _load_poses_data():
+    """Load poses data from JSON file."""
+    import json
+    poses_path = os.path.join("static", "data", "yoga", "poses.json")
+    with open(poses_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_knowledge_base():
+    """Load knowledge base data from JSON file."""
+    import json
+    kb_path = os.path.join("static", "data", "yoga", "knowledge_base.json")
+    try:
+        with open(kb_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"poses": {}}
+
+
+@app.get("/yoga/poses/{pose_id}")
+async def yoga_pose_detail(request: Request, pose_id: str):
+    """Detailed pose encyclopedia page."""
+    # Load poses data
+    poses_data = _load_poses_data()
+    knowledge_base = _load_knowledge_base()
+
+    # Find the requested pose
+    pose = None
+    for p in poses_data.get("poses", []):
+        if p["id"] == pose_id:
+            pose = p
+            break
+
+    if not pose:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/yoga", status_code=302)
+
+    # Get knowledge base entry for this pose
+    knowledge = knowledge_base.get("poses", {}).get(pose_id, None)
+
+    # Get related poses (same category or focus)
+    related_poses = [
+        p for p in poses_data.get("poses", [])
+        if p["id"] != pose_id and (
+            p["category"] == pose["category"] or
+            any(f in pose.get("focus", []) for f in p.get("focus", []))
+        )
+    ][:4]
+
+    return templates.TemplateResponse("yoga_pose_detail.html", {
+        "request": request,
+        "pose": pose,
+        "knowledge": knowledge,
+        "related_poses": related_poses
+    })
+
+@app.get("/yoga/preview")
+async def yoga_preview_page(request: Request):
+    """Pre-session flow preview page with educational content."""
+    return templates.TemplateResponse("yoga_flow_preview.html", {"request": request})
+
+
+@app.get("/yoga/report")
+async def yoga_report_page(request: Request):
+    """Post-session wellness report page."""
+    return templates.TemplateResponse("yoga_session_report.html", {"request": request})
+
+
 @app.get("/yoga/session")
 async def yoga_session_page(request: Request):
-    return templates.TemplateResponse("yoga_session.html", {"request": request})
+    return templates.TemplateResponse("yoga_session.html", {"request": request, "show_ads": False})
 
 @app.get("/yoga/remote")
 async def yoga_remote_entry(request: Request):
-    return templates.TemplateResponse("yoga_remote_entry.html", {"request": request})
+    return templates.TemplateResponse("yoga_remote_entry.html", {"request": request, "show_ads": False})
 
 @app.get("/yoga/remote/{code}")
 async def yoga_remote_page(request: Request, code: str):
@@ -139,9 +223,10 @@ async def yoga_remote_page(request: Request, code: str):
     if not ws_manager.room_exists(code):
         return templates.TemplateResponse("yoga_remote_entry.html", {
             "request": request,
+            "show_ads": False,
             "error": "Room not found. Check the code and try again."
         })
-    return templates.TemplateResponse("yoga_remote.html", {"request": request, "code": code})
+    return templates.TemplateResponse("yoga_remote.html", {"request": request, "code": code, "show_ads": False})
 
 @app.get("/yoga/join")
 async def yoga_join_via_token(request: Request, token: str = ""):
@@ -149,6 +234,7 @@ async def yoga_join_via_token(request: Request, token: str = ""):
     if not token:
         return templates.TemplateResponse("yoga_remote_entry.html", {
             "request": request,
+            "show_ads": False,
             "error": "Invalid link. Please scan the QR code again or enter a code manually."
         })
 
@@ -156,11 +242,12 @@ async def yoga_join_via_token(request: Request, token: str = ""):
     if not room:
         return templates.TemplateResponse("yoga_remote_entry.html", {
             "request": request,
+            "show_ads": False,
             "error": error
         })
 
     # Token valid - redirect to room
-    return templates.TemplateResponse("yoga_remote.html", {"request": request, "code": room.code})
+    return templates.TemplateResponse("yoga_remote.html", {"request": request, "code": room.code, "show_ads": False})
 
 # Yoga Session WebSocket Endpoints
 @app.post("/api/yoga/room")
@@ -195,22 +282,67 @@ async def generate_voice_script(request: Request):
 
     return JSONResponse({"script": script})
 
-def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request, considering proxies."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    real_ip = request.headers.get("x-real-ip")
-    if real_ip:
-        return real_ip.strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
+
+@app.post("/api/yoga/manifest")
+async def generate_session_manifest(request: Request):
+    """
+    Generate a v2.0 session manifest with segments, interpolation keyframes, and bilateral sets.
+
+    Request body:
+    {
+        "duration": 15,           // Duration in minutes
+        "focus": "all",           // Focus area (all, balance, flexibility, strength, relaxation)
+        "difficulty": "beginner", // Difficulty level
+        "poses": ["warrior", ...] // Optional: explicit pose list (overrides auto-generation)
+        "style": "vinyasa"        // Session style: "power" or "vinyasa"
+    }
+
+    Returns:
+    {
+        "manifest": { ... },      // Full session manifest
+        "valid": true,            // Pre-flight validation result
+        "errors": []              // Validation errors if any
+    }
+    """
+    data = await request.json()
+
+    duration_mins = data.get("duration", 15)
+    focus = data.get("focus", "all")
+    difficulty = data.get("difficulty", "beginner")
+    pose_ids = data.get("poses")  # Optional explicit pose list
+    session_style = data.get("style", "vinyasa")  # Default to vinyasa
+
+    if cfg.ENVIRONMENT == "development":
+        print(f"[MANIFEST] Generating: {duration_mins}min, focus={focus}, difficulty={difficulty}, style={session_style}")
+
+    # Generate the manifest
+    manifest = generate_manifest(
+        duration_mins=duration_mins,
+        focus=focus,
+        difficulty=difficulty,
+        pose_ids=pose_ids,
+        session_style=session_style
+    )
+
+    # Validate the manifest
+    is_valid, errors = ManifestValidator.validate(manifest)
+
+    if cfg.ENVIRONMENT == "development":
+        print(f"[MANIFEST] Generated {len(manifest.get('segments', []))} segments, valid={is_valid}")
+        if errors:
+            for err in errors:
+                print(f"[MANIFEST] Validation error: {err}")
+
+    return JSONResponse({
+        "manifest": manifest,
+        "valid": is_valid,
+        "errors": errors
+    })
 
 @app.get("/api/yoga/room/{code}")
 async def check_yoga_room(request: Request, code: str):
     """Check if a room exists (with rate limiting)."""
-    client_ip = _get_client_ip(request)
+    client_ip = get_client_ip(request)
     room, error = ws_manager.validate_code(code, client_ip)
 
     if error:

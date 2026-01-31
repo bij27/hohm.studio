@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-8332216835063057">
     <title>hohm.studio | Yoga Session</title>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>
+    {% if show_ads != false %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8332216835063057" crossorigin="anonymous"></script>{% endif %}
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo.png?v=4">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/images/logo.png?v=4">
 
@@ -17,6 +17,8 @@
 
     <!-- Lucide Icons (SVG-based, no font loading issues) -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <!-- QR Code generation for secure room pairing -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
     <style>
         :root {
@@ -26,7 +28,7 @@
             --color-primary-light: #a8c5be;
             --color-accent: #d4a574;
             --color-text: #2c3333;
-            --color-text-secondary: #6b7575;
+            --color-text-secondary: #595959; /* WCAG AA */
             --color-good: #7c9a92;
             --color-warning: #d4a574;
             --color-bad: #c97b7b;
@@ -424,11 +426,18 @@
             justify-content: center;
             z-index: 999;
         }
+        .calibration-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 80px;
+            max-width: 900px;
+            padding: 40px;
+        }
         .calibration-content {
             text-align: center;
             color: white;
             max-width: 400px;
-            padding: 40px;
         }
         .calibration-content h2 {
             font-size: 1.8rem;
@@ -457,27 +466,93 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-        .room-code-display {
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+
+        /* Session Code Panel (right column) */
+        .session-code-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            color: white;
+            min-width: 280px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
-        .room-code-label {
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.6);
+        .session-code-panel.hidden {
+            opacity: 0;
+            transform: translateX(20px);
+            pointer-events: none;
+        }
+        .session-code-panel h3 {
+            font-size: 1rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 20px;
+        }
+        .qr-code-wrapper {
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        #qr-code-img {
+            display: block;
+            width: 150px;
+            height: 150px;
+        }
+        .code-divider-horizontal {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 16px 0;
+        }
+        .code-divider-horizontal::before,
+        .code-divider-horizontal::after {
+            content: '';
+            width: 40px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .manual-code-section {
+            text-align: center;
+        }
+        .manual-code-label {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
             margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         .room-code {
-            font-size: 3rem;
+            font-size: 2rem;
             font-weight: 300;
-            letter-spacing: 12px;
+            letter-spacing: 6px;
             color: var(--color-primary);
             font-variant-numeric: tabular-nums;
+            font-family: 'Consolas', 'Monaco', monospace;
         }
-        .room-code-hint {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.5);
-            margin-top: 12px;
+        .session-code-hint {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 16px;
+        }
+
+        @media (max-width: 800px) {
+            .calibration-container {
+                flex-direction: column;
+                gap: 40px;
+            }
+            .session-code-panel {
+                min-width: auto;
+                width: 100%;
+                max-width: 300px;
+            }
         }
 
         /* Countdown Overlay */
@@ -629,8 +704,10 @@
             .consent-disclaimer p { font-size: 0.75rem; }
         }
     </style>
+    <link rel="stylesheet" href="/static/css/accessibility.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <!-- No JavaScript fallback -->
     <noscript>
         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fcfaf7; display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px; text-align: center;">
@@ -685,13 +762,13 @@
                 </div>
 
                 <div class="consent-privacy">
-                    <p>By using this app, you agree to our privacy practices and health disclaimer.</p>
-                    <a href="/privacy" target="_blank">Read full Privacy Policy</a>
+                    <p>By using this app, you agree to our privacy practices, terms of service, and health disclaimer.</p>
+                    <a href="/privacy" target="_blank">Privacy Policy</a> | <a href="/tos" target="_blank">Terms of Service</a>
                 </div>
             </div>
 
             <div class="consent-actions">
-                <button id="consent-agree" class="btn btn-primary"><i data-lucide="check-circle" style="margin-right: 8px;"></i>I Understand & Agree</button>
+                <button id="consent-agree" class="btn btn-primary"><i data-lucide="check-circle" style="margin-right: 8px;" aria-hidden="true"></i>I Understand & Agree</button>
                 <button id="consent-decline" class="btn-decline">Decline</button>
             </div>
         </div>
@@ -717,16 +794,27 @@
 
     <!-- Calibration Overlay -->
     <div class="calibration-overlay" id="calibration-overlay" style="display: none;">
-        <div class="calibration-content">
-            <h2>Position Yourself</h2>
-            <p>Stand back so your full body is visible in the camera.</p>
-            <div class="calibration-status" id="calibration-status">Detecting body...</div>
-            <button class="btn btn-primary start-btn" id="start-btn" disabled style="display: none;"><i data-lucide="play" style="margin-right: 8px;"></i>Start Session</button>
+        <div class="calibration-container">
+            <!-- Left Column: Calibration Instructions -->
+            <div class="calibration-content">
+                <h2>Position Yourself</h2>
+                <p>Stand back so your full body is visible in the camera.</p>
+                <div class="calibration-status" id="calibration-status">Detecting body...</div>
+                <button class="btn btn-primary start-btn" id="start-btn" disabled style="display: none;"><i data-lucide="play" style="margin-right: 8px;" aria-hidden="true"></i>Start Session</button>
+            </div>
 
-            <div class="room-code-display" id="room-code-display" style="display: none;">
-                <div class="room-code-label">Phone Remote Code:</div>
-                <div class="room-code" id="room-code">----</div>
-                <div class="room-code-hint">Visit hohm.studio/yoga/remote on your phone</div>
+            <!-- Right Column: Session Code -->
+            <div class="session-code-panel" id="session-code-panel">
+                <h3>Connect Your Phone</h3>
+                <div class="qr-code-wrapper">
+                    <img id="qr-code-img" alt="QR Code" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+                </div>
+                <div class="code-divider-horizontal">or</div>
+                <div class="manual-code-section">
+                    <div class="manual-code-label">Enter code at hohm.studio/yoga/remote</div>
+                    <div class="room-code" id="room-code">------</div>
+                </div>
+                <div class="session-code-hint">Use your phone as a remote control</div>
             </div>
         </div>
     </div>
@@ -743,16 +831,16 @@
         </a>
         <div class="session-timer" id="session-timer">00:00</div>
         <div class="header-controls">
-            <button class="btn-icon" id="sound-toggle" title="Toggle voice guidance">
-                <i data-lucide="volume-2" style="font-size: 1.1rem;"></i>
+            <button class="btn-icon" id="sound-toggle" title="Toggle voice guidance" aria-label="Toggle voice guidance">
+                <i data-lucide="volume-2" style="font-size: 1.1rem;" aria-hidden="true"></i>
             </button>
-            <button class="btn-icon" id="music-toggle" title="Toggle ambient music">
-                <i data-lucide="music" style="font-size: 1.1rem;"></i>
+            <button class="btn-icon" id="music-toggle" title="Toggle ambient music" aria-label="Toggle ambient music">
+                <i data-lucide="music" style="font-size: 1.1rem;" aria-hidden="true"></i>
             </button>
         </div>
     </header>
 
-    <main>
+    <main id="main-content">
         <div class="video-section">
             <div class="video-wrapper">
                 <video id="webcam" autoplay playsinline class="mirrored"></video>
@@ -800,31 +888,31 @@
                 <!-- Voice Guide -->
                 <div class="audio-row">
                     <div class="audio-label">
-                        <button class="audio-toggle active" id="voice-toggle" title="Toggle voice guide">
-                            <i data-lucide="volume-2"></i>
+                        <button class="audio-toggle active" id="voice-toggle" title="Toggle voice guide" aria-label="Toggle voice guide">
+                            <i data-lucide="volume-2" aria-hidden="true"></i>
                         </button>
                         <span>Voice Guide</span>
                     </div>
-                    <input type="range" class="volume-slider" id="voice-volume" min="0" max="100" value="80">
+                    <input type="range" class="volume-slider" id="voice-volume" min="0" max="100" value="80" aria-label="Voice guide volume">
                 </div>
 
                 <!-- Ambient Sound -->
                 <div class="audio-row">
                     <div class="audio-label">
-                        <button class="audio-toggle" id="ambient-toggle" title="Toggle ambient sound">
-                            <i data-lucide="music"></i>
+                        <button class="audio-toggle" id="ambient-toggle" title="Toggle ambient sound" aria-label="Toggle ambient sound">
+                            <i data-lucide="music" aria-hidden="true"></i>
                         </button>
                         <span>Ambient</span>
                     </div>
-                    <input type="range" class="volume-slider" id="ambient-volume" min="0" max="100" value="30">
+                    <input type="range" class="volume-slider" id="ambient-volume" min="0" max="100" value="30" aria-label="Ambient music volume">
                 </div>
 
                 <!-- Ambient Track Selector -->
                 <div class="ambient-tracks" id="ambient-tracks">
-                    <button class="ambient-track active" data-track="permafrost" title="Permafrost - Meditative strings"><i data-lucide="snowflake"></i></button>
-                    <button class="ambient-track" data-track="reverie" title="Reverie - Piano and strings"><i data-lucide="cloud"></i></button>
-                    <button class="ambient-track" data-track="borealis" title="Borealis - Ethereal ambient"><i data-lucide="sparkles"></i></button>
-                    <button class="ambient-track" data-track="petrichor" title="Petrichor - Warm synth"><i data-lucide="droplets"></i></button>
+                    <button class="ambient-track active" data-track="permafrost" title="Permafrost - Meditative strings" aria-label="Permafrost - Meditative strings"><i data-lucide="snowflake" aria-hidden="true"></i></button>
+                    <button class="ambient-track" data-track="reverie" title="Reverie - Piano and strings" aria-label="Reverie - Piano and strings"><i data-lucide="cloud" aria-hidden="true"></i></button>
+                    <button class="ambient-track" data-track="borealis" title="Borealis - Ethereal ambient" aria-label="Borealis - Ethereal ambient"><i data-lucide="sparkles" aria-hidden="true"></i></button>
+                    <button class="ambient-track" data-track="petrichor" title="Petrichor - Warm synth" aria-label="Petrichor - Warm synth"><i data-lucide="droplets" aria-hidden="true"></i></button>
                 </div>
                 <div class="audio-attribution" style="font-size: 0.7rem; color: var(--color-text-secondary); margin-top: 8px; text-align: center;">
                     Music by <a href="https://www.scottbuckley.com.au" target="_blank" style="color: var(--color-primary);">Scott Buckley</a> (CC-BY 4.0)
@@ -836,8 +924,8 @@
             <audio id="ambient-audio" loop preload="auto" crossorigin="anonymous"></audio>
 
             <div class="session-controls">
-                <button class="btn btn-primary" id="pause-btn"><i data-lucide="pause" style="margin-right: 6px;"></i>Pause</button>
-                <button class="btn btn-secondary" id="end-btn"><i data-lucide="x" style="margin-right: 6px;"></i>End Session</button>
+                <button class="btn btn-primary" id="pause-btn"><i data-lucide="pause" style="margin-right: 6px;" aria-hidden="true"></i>Pause</button>
+                <button class="btn btn-secondary" id="end-btn"><i data-lucide="x" style="margin-right: 6px;" aria-hidden="true"></i>End Session</button>
             </div>
         </div>
     </main>
@@ -894,7 +982,8 @@
         // Initialize Lucide icons for consent modal
         lucide.createIcons();
     </script>
-    <script src="/static/js/yoga-session.js?v=15"></script>
+    <script src="/static/js/yoga-interpolation.js?v=1"></script>
+    <script src="/static/js/yoga-session.js?v=17"></script>
     <script>
         // Re-initialize Lucide icons after yoga-session.js loads
         lucide.createIcons();
