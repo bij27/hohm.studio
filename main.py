@@ -144,8 +144,17 @@ def _load_poses_data():
     """Load poses data from JSON file."""
     import json
     poses_path = os.path.join("static", "data", "yoga", "poses.json")
-    with open(poses_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(poses_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        if cfg.ENVIRONMENT == "development":
+            print(f"[WARN] Poses data file not found: {poses_path}")
+        return {"poses": []}
+    except json.JSONDecodeError as e:
+        if cfg.ENVIRONMENT == "development":
+            print(f"[WARN] Invalid JSON in poses data: {e}")
+        return {"poses": []}
 
 
 def _load_knowledge_base():

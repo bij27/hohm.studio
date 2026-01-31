@@ -60,6 +60,15 @@ nul
 # Temporary yoga dataset (development only)
 _yoga_dataset_temp/
 
+# Development pose reference captures
+reference_captures/
+
+# Large ML model files (download separately)
+scripts/models/*.task
+
+# Temporary test files
+*manifest_test.json
+
 # Test artifacts
 .coverage
 htmlcov/

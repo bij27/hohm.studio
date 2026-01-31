@@ -19,6 +19,7 @@ from fastapi import Request, Response, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import config as cfg
+from utils.network import get_client_ip
 
 
 # === RATE LIMITER ===
@@ -54,31 +55,12 @@ class IPRateLimiter:
             if ts > cutoff
         ]
 
-    def _get_client_ip(self, request: Request) -> str:
-        """Extract real client IP, considering proxies."""
-        # Check X-Forwarded-For header (from reverse proxy)
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            # Take the first IP (original client)
-            return forwarded.split(",")[0].strip()
-
-        # Check X-Real-IP header
-        real_ip = request.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip.strip()
-
-        # Fall back to direct connection IP
-        if request.client:
-            return request.client.host
-
-        return "unknown"
-
     def is_allowed(self, request: Request) -> Tuple[bool, str]:
         """
         Check if request is allowed.
         Returns (is_allowed, reason_if_blocked)
         """
-        ip = self._get_client_ip(request)
+        ip = get_client_ip(request)
         now = time.time()
 
         # Check if IP is currently blocked

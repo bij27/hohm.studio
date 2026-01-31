@@ -10,13 +10,7 @@ import os
 import random
 from pathlib import Path
 from typing import List, Dict, Optional
-import config as cfg
-
-
-def _debug_log(message: str):
-    """Print debug message only in development environment."""
-    if cfg.ENVIRONMENT == "development":
-        print(message)
+from utils.debug import debug_log as _debug_log
 
 
 # Voice configuration - Indian-British female voice
@@ -37,6 +31,49 @@ class YogaScriptGenerator:
         "Hello, and welcome to your {duration} minute practice.",
         "Namaste. Welcome to your {duration} minute yoga journey.",
     ]
+
+    # Side-aware phrases for bilateral poses
+    LEFT_SIDE_INTROS = [
+        "Let's start on your left side.",
+        "We'll begin with your left side.",
+        "Starting on the left.",
+        "First, on your left side.",
+    ]
+
+    RIGHT_SIDE_INTROS = [
+        "Now, let's mirror that on your right side.",
+        "Switching to your right side.",
+        "Now the same on your right.",
+        "Let's balance with the right side.",
+        "And now, your right side.",
+    ]
+
+    SET_TRANSITIONS = [
+        "Beautiful. Now let's transition to the other side.",
+        "Wonderful work. Time to switch sides.",
+        "Lovely. Let's balance that out on the other side.",
+        "Great form. Now mirror that pose.",
+        "Well done. Same pose, opposite side.",
+    ]
+
+    SIDE_SPECIFIC_CUES = {
+        "left": {
+            "leg": "your left leg",
+            "arm": "your left arm",
+            "foot": "your left foot",
+            "hand": "your left hand",
+            "hip": "your left hip",
+            "knee": "your left knee",
+        },
+        "right": {
+            "leg": "your right leg",
+            "arm": "your right arm",
+            "foot": "your right foot",
+            "hand": "your right hand",
+            "hip": "your right hip",
+            "knee": "your right knee",
+        }
+    }
 
     SESSION_INTROS = [
         "Today, we'll be flowing through {pose_count} poses, focusing on {focus_area}.",
@@ -86,6 +123,29 @@ class YogaScriptGenerator:
         "Keep holding. Notice the sensations in your body.",
     ]
 
+    # Breath cues for vinyasa style
+    INHALE_CUES = [
+        "Inhale deeply.",
+        "Take a slow breath in.",
+        "Breathe in.",
+        "Inhale, expanding your chest.",
+    ]
+
+    EXHALE_CUES = [
+        "Exhale slowly.",
+        "Breathe out.",
+        "Release the breath.",
+        "Exhale, letting go of tension.",
+    ]
+
+    BREATH_HOLDS = [
+        "Continue breathing steadily.",
+        "Match each movement to your breath.",
+        "Let your breath guide you.",
+        "Inhale to lengthen, exhale to deepen.",
+        "Breathe naturally and stay present.",
+    ]
+
     # Form feedback
     GOOD_FORM = [
         "Beautiful form. Keep it up.",
@@ -104,15 +164,33 @@ class YogaScriptGenerator:
         "Keep breathing as you adjust your position.",
     ]
 
-    # Pose completion
+    # Pose completion (for flowing transitions - no stopping)
     POSE_COMPLETE = [
-        "And release. Well done.",
-        "Gently come out of the pose. That was wonderful.",
-        "And relax. You did beautifully.",
-        "Release the pose. Take a breath.",
+        "Beautiful. Now flow with me.",
+        "Lovely. Let's continue moving.",
+        "Wonderful. Keep flowing.",
+        "Well done. Stay with the movement.",
     ]
 
-    # Transitions
+    # Flowing transitions (continuous movement, no breaks)
+    FLOW_TRANSITIONS = [
+        "Smoothly transition now.",
+        "Flow into the next position.",
+        "Let the movement guide you.",
+        "Seamlessly move forward.",
+        "Continue the flow.",
+        "Keep moving with your breath.",
+    ]
+
+    # Rotation switch (right side to left side)
+    ROTATION_SWITCH = [
+        "Excellent work on the right side. Now, let's mirror everything on your left.",
+        "Beautiful flow. Time to balance with your left side.",
+        "Right side complete. Let's bring that same energy to your left.",
+        "Wonderful. Now we'll repeat the sequence on your left side.",
+    ]
+
+    # Legacy transitions (kept for compatibility)
     TRANSITIONS = [
         "Take a breath, and let's move on.",
         "When you're ready, we'll continue to the next pose.",
@@ -161,11 +239,18 @@ class YogaScriptGenerator:
             {"type": "pose_intro", "text": "...", "timing": "pose_start", "pose_index": 0},
             ...
         ]
+
+        Supports bilateral poses with side-aware phrases when pose has "side" field.
+        Supports breath cues for vinyasa style when breathCues is true.
         """
         script = []
         duration = session_data.get("duration", 15)
         poses = session_data.get("poses", [])
         focus = session_data.get("focus", "flexibility and balance")
+        breath_cues = session_data.get("breathCues", True)
+        session_style = session_data.get("style", "vinyasa")
+
+        _debug_log(f"[SCRIPT] Style: {session_style}, breathCues: {breath_cues}")
 
         # === SESSION START ===
         script.append({
@@ -206,8 +291,10 @@ class YogaScriptGenerator:
             duration_secs = pose.get("duration_seconds", [30])[0]
             instructions = pose.get("instructions", [])
             phase = pose.get("phase", "main")
+            side = pose.get("side")  # "left", "right", or None for symmetric poses
+            is_bilateral = side is not None
 
-            _debug_log(f"[SCRIPT] Pose {i}: {pose_name} ({len(instructions) if isinstance(instructions, list) else 0} instructions)")
+            _debug_log(f"[SCRIPT] Pose {i}: {pose_name} (side={side}, {len(instructions) if isinstance(instructions, list) else 0} instructions)")
 
             # Cooldown transition
             if phase == "cooldown" and i > 0:
@@ -220,7 +307,7 @@ class YogaScriptGenerator:
                         "pose_index": i
                     })
 
-            # Pose introduction
+            # Pose introduction with side awareness
             if i == 0:
                 intro_text = random.choice(cls.FIRST_POSE_INTROS).format(pose_name=pose_name)
             else:
@@ -230,8 +317,41 @@ class YogaScriptGenerator:
                 "type": "pose_intro",
                 "text": intro_text,
                 "timing": "pose_start",
-                "pose_index": i
+                "pose_index": i,
+                "side": side
             })
+
+            # Add side-specific intro for bilateral poses
+            if is_bilateral:
+                if side == "left":
+                    side_intro = random.choice(cls.LEFT_SIDE_INTROS)
+                elif side == "right":
+                    # Check if previous pose was same pose on left side (set transition)
+                    prev_pose = poses[i - 1] if i > 0 else None
+                    if prev_pose and prev_pose.get("id") == pose_id and prev_pose.get("side") == "left":
+                        side_intro = random.choice(cls.SET_TRANSITIONS)
+                    else:
+                        side_intro = random.choice(cls.RIGHT_SIDE_INTROS)
+                else:
+                    side_intro = None
+
+                if side_intro:
+                    script.append({
+                        "type": "side_intro",
+                        "text": side_intro,
+                        "timing": "pose_start",
+                        "pose_index": i,
+                        "side": side
+                    })
+
+            # Breath cue before pose instructions (vinyasa style)
+            if breath_cues:
+                script.append({
+                    "type": "breath_cue",
+                    "text": random.choice(cls.INHALE_CUES),
+                    "timing": "pose_start",
+                    "pose_index": i
+                })
 
             # Pose instructions - include ALL step-by-step instructions
             if instructions and len(instructions) > 0:
@@ -269,6 +389,15 @@ class YogaScriptGenerator:
                 "pose_index": i
             })
 
+            # Breath guidance during hold (vinyasa style)
+            if breath_cues:
+                script.append({
+                    "type": "breath_cue",
+                    "text": random.choice(cls.BREATH_HOLDS),
+                    "timing": "pose_holding",
+                    "pose_index": i
+                })
+
             # Mid-pose encouragement (for longer holds)
             if duration_secs >= 30:
                 script.append({
@@ -277,6 +406,14 @@ class YogaScriptGenerator:
                     "timing": "pose_midpoint",
                     "pose_index": i
                 })
+                # Extra breath cue at midpoint for long holds (vinyasa style)
+                if breath_cues:
+                    script.append({
+                        "type": "breath_cue",
+                        "text": random.choice(cls.BREATH_HOLDS),
+                        "timing": "pose_midpoint",
+                        "pose_index": i
+                    })
 
             # Pose corrections (played when form drops)
             # Add multiple correction phrases so they don't repeat
@@ -288,19 +425,53 @@ class YogaScriptGenerator:
                     "pose_index": i
                 })
 
-            # Pose completion
-            script.append({
-                "type": "pose_complete",
-                "text": random.choice(cls.POSE_COMPLETE),
-                "timing": "pose_end",
-                "pose_index": i
-            })
-
-            # Transition (except for last pose)
-            if i < len(poses) - 1:
+            # Exhale cue before releasing pose (vinyasa style)
+            if breath_cues:
                 script.append({
-                    "type": "transition",
-                    "text": random.choice(cls.TRANSITIONS),
+                    "type": "breath_cue",
+                    "text": random.choice(cls.EXHALE_CUES),
+                    "timing": "pose_end",
+                    "pose_index": i
+                })
+
+            # Check if next pose is a rotation switch (right side to left side)
+            next_pose = poses[i + 1] if i < len(poses) - 1 else None
+            is_rotation_switch = (
+                next_pose and
+                next_pose.get("isRotationStart") and
+                next_pose.get("rotationSide") == "left"
+            )
+
+            # Pose completion with flowing transition
+            if i < len(poses) - 1:
+                # Not the last pose - flow into next
+                if is_rotation_switch:
+                    # Switching from right side to left side
+                    script.append({
+                        "type": "rotation_switch",
+                        "text": random.choice(cls.ROTATION_SWITCH),
+                        "timing": "pose_end",
+                        "pose_index": i
+                    })
+                else:
+                    # Normal flowing transition
+                    script.append({
+                        "type": "pose_complete",
+                        "text": random.choice(cls.POSE_COMPLETE),
+                        "timing": "pose_end",
+                        "pose_index": i
+                    })
+                    script.append({
+                        "type": "flow_transition",
+                        "text": random.choice(cls.FLOW_TRANSITIONS),
+                        "timing": "pose_end",
+                        "pose_index": i
+                    })
+            else:
+                # Last pose - actual completion
+                script.append({
+                    "type": "pose_complete",
+                    "text": "And release. You did beautifully.",
                     "timing": "pose_end",
                     "pose_index": i
                 })

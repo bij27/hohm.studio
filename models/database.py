@@ -4,15 +4,10 @@ import json
 import math
 import traceback
 from typing import Optional, Any
+from utils.debug import debug_log as _debug_log
 
 # Constants
 MAX_LOGS_PER_SESSION = 10000
-
-
-def _debug_log(message: str):
-    """Print debug message only in development environment."""
-    if cfg.ENVIRONMENT == "development":
-        print(message)
 
 # Global connection pool
 _pool: Optional[asyncpg.Pool] = None

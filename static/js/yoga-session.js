@@ -1,7 +1,27 @@
 /**
- * Yoga Session Controller v2
- * With calibration, skeleton overlay, form tracking, guided flow, and remote control
+ * Yoga Session Controller v3
+ * Unified Flow Model with server-side manifests, skeleton interpolation,
+ * bilateral symmetry, and synchronized state machine.
  */
+
+// Session states for the unified flow model
+const SessionState = {
+    LOADING: 'loading',
+    CALIBRATING: 'calibrating',
+    COUNTDOWN: 'countdown',
+    // Per-segment states
+    INSTRUCTIONS: 'instructions',
+    TRANSITIONING: 'transitioning',
+    ESTABLISHING: 'establishing',
+    ACTIVE_HOLD: 'active',  // Keep 'active' for backwards compatibility
+    // Session-level
+    PAUSED: 'paused',
+    COMPLETE: 'complete',
+    // Legacy states (for backwards compatibility)
+    INTRO: 'intro',
+    POSITIONING: 'positioning',
+    TRANSITION: 'transition'
+};
 
 class YogaSession {
     constructor() {
@@ -10,6 +30,17 @@ class YogaSession {
         this.currentPoseIndex = 0;
         this.currentPose = null;
 
+        // === NEW: Manifest-based session ===
+        this.manifest = null;
+        this.currentSegmentIndex = 0;
+        this.currentSegment = null;
+        this.useManifest = false;  // Flag to use new manifest system
+
+        // === NEW: Interpolation ===
+        this.interpolator = null;
+        this.ghostRenderer = null;
+        this.interpolationManager = null;
+
         // Timing
         this.sessionDuration = 0;
         this.sessionElapsed = 0;
@@ -17,6 +48,12 @@ class YogaSession {
         this.poseTimeTotal = 0;
         this.goodFormTime = 0;
         this.matchScore = 0;
+
+        // === NEW: Segment timing ===
+        this.segmentState = SessionState.LOADING;
+        this.establishingStartTime = null;
+        this.establishingTimeoutMs = 10000;
+        this.formMatchThreshold = 0.45;
 
         // State
         this.state = 'loading'; // loading, calibrating, countdown, active, paused, complete
@@ -30,8 +67,26 @@ class YogaSession {
             needsWork: 0   // <50%
         };
         this.currentFormLevel = 'needsWork';
+
+        // Per-pose performance tracking for session report
+        this.posePerformance = [];
+        this.currentPoseFormTime = {
+            perfect: 0,
+            good: 0,
+            okay: 0,
+            needsWork: 0
+        };
+
+        // Variation tracking - tracks which variation user matches best
+        this.currentMatchedVariation = null;  // { id, name, matchCount }
+        this.variationMatchCounts = {};       // { variationId: frameCount }
+
         this.introPlayed = false;
         this.poseTimerStarted = false;
+        this.instructionTimeRemaining = 0;
+        this.instructionTimerActive = false;
+        this.audioComplete = false;
+        this.formCalibrated = false;
 
         // Pose detection
         this.poseLandmarker = null;
@@ -43,6 +98,8 @@ class YogaSession {
         // Target pose smoothing
         this.smoothedTargetPosition = null;
         this.targetSmoothingFactor = 0.15; // Even smoother for target overlay (less responsive, more stable)
+        this.targetPoseWarmupFrames = 0;   // Warmup counter - require stable frames before showing skeleton
+        this.audioUnlocked = false;        // Track if audio has been unlocked by user gesture
 
         // Settings
         this.voiceEnabled = true;
@@ -92,8 +149,9 @@ class YogaSession {
             musicVolume: document.getElementById('music-volume'),
             calibrationStatus: document.getElementById('calibration-status'),
             formStatus: document.getElementById('form-status'),
-            roomCodeDisplay: document.getElementById('room-code-display'),
+            sessionCodePanel: document.getElementById('session-code-panel'),
             roomCode: document.getElementById('room-code'),
+            qrCodeImg: document.getElementById('qr-code-img'),
             // Audio elements
             voiceAudio: document.getElementById('voice-audio'),
             ambientAudio: document.getElementById('ambient-audio'),
@@ -119,8 +177,29 @@ class YogaSession {
             if (this.elements.roomCode) {
                 this.elements.roomCode.textContent = this.roomCode;
             }
-            if (this.elements.roomCodeDisplay) {
-                this.elements.roomCodeDisplay.style.display = 'block';
+
+            // Generate QR code with secure token URL as data URL image
+            if (data.qr_url && this.elements.qrCodeImg) {
+                if (typeof QRCode !== 'undefined') {
+                    QRCode.toDataURL(data.qr_url, {
+                        width: 150,
+                        margin: 1,
+                        color: {
+                            dark: '#1a1a2e',
+                            light: '#ffffff'
+                        }
+                    }, (error, url) => {
+                        if (error) {
+                            console.error('QR Code error:', error);
+                            this.elements.qrCodeImg.style.display = 'none';
+                        } else {
+                            this.elements.qrCodeImg.src = url;
+                        }
+                    });
+                } else {
+                    console.error('QRCode library not loaded');
+                    this.elements.qrCodeImg.style.display = 'none';
+                }
             }
 
             // Connect WebSocket
@@ -190,6 +269,14 @@ class YogaSession {
                 case 'toggle_ambient':
                     this.toggleAmbient();
                     break;
+                case 'skip_establishing':
+                    // Accessibility: force start timer from remote when in establishing state
+                    if (this.state === 'establishing' || this.segmentState === 'establishing') {
+                        console.log('[REMOTE] Skip establishing requested');
+                        this.setSegmentState(SessionState.ACTIVE_HOLD);
+                        this.poseTimerStarted = true;
+                    }
+                    break;
             }
         }
 
@@ -213,6 +300,25 @@ class YogaSession {
             const trackId = message.track;
             console.log('[REMOTE] Ambient track change:', trackId);
             this.setAmbientTrack(trackId);
+        }
+
+        // Handle remote device connection - hide session code panel
+        if (message.type === 'remote_connected') {
+            console.log('[REMOTE] Phone connected, hiding session code');
+            if (this.elements.sessionCodePanel) {
+                this.elements.sessionCodePanel.classList.add('hidden');
+            }
+        }
+
+        // Handle remote device disconnection - show session code again if no remotes
+        if (message.type === 'remote_disconnected') {
+            console.log('[REMOTE] Phone disconnected, remotes remaining:', message.remoteCount);
+            if (message.remoteCount === 0 && this.elements.sessionCodePanel) {
+                // Only show session code again during calibration phase
+                if (this.state === 'calibrating') {
+                    this.elements.sessionCodePanel.classList.remove('hidden');
+                }
+            }
         }
     }
 
@@ -239,7 +345,19 @@ class YogaSession {
             sessionElapsed: this.sessionElapsed,
             isFormGood: this.isFormGood,
             poseTimerStarted: this.poseTimerStarted,
-            formLevel: this.currentFormLevel
+            formLevel: this.currentFormLevel,
+            // New manifest-based fields
+            segmentIndex: this.currentSegmentIndex,
+            segmentState: this.segmentState,
+            totalSegments: this.manifest?.segments?.length || this.sessionQueue.length,
+            currentSegment: this.currentSegment ? {
+                poseId: this.currentSegment.poseId,
+                side: this.currentSegment.side,
+                isBridge: this.currentSegment.isBridge,
+                setId: this.currentSegment.setId
+            } : null,
+            interpolationProgress: this.interpolator ? this.interpolator.getProgress() : 0,
+            audioPlaying: this.isVoicePlaying
         };
 
         this.ws.send(JSON.stringify({
@@ -284,30 +402,320 @@ class YogaSession {
         }
     }
 
-    async generateVoiceScript() {
+    // === NEW: MANIFEST-BASED SESSION GENERATION ===
+
+    async generateManifest(durationMins, focus, difficulty, poseIds = null) {
         try {
-            // Debug: Log raw sessionQueue BEFORE mapping
-            console.log('%c[VOICE] ========== RAW SESSION QUEUE ==========', 'color: #c97b7b; font-weight: bold');
-            console.log('[VOICE] sessionQueue length:', this.sessionQueue.length);
-            this.sessionQueue.forEach((p, i) => {
-                console.log(`[VOICE] Queue[${i}]: ${p.name}`);
-                console.log(`[VOICE]   instructions type: ${typeof p.instructions}`);
-                console.log(`[VOICE]   instructions isArray: ${Array.isArray(p.instructions)}`);
-                console.log(`[VOICE]   instructions length: ${p.instructions?.length}`);
-                console.log(`[VOICE]   instructions value:`, p.instructions);
+            console.log('[MANIFEST] Generating manifest...');
+            const response = await fetch('/api/yoga/manifest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    duration: durationMins,
+                    focus: focus,
+                    difficulty: difficulty,
+                    poses: poseIds
+                })
             });
 
+            if (!response.ok) {
+                throw new Error(`Manifest API returned ${response.status}`);
+            }
+
+            const data = await response.json();
+            this.manifest = data.manifest;
+
+            if (!data.valid) {
+                console.warn('[MANIFEST] Validation errors:', data.errors);
+            }
+
+            console.log(`[MANIFEST] Generated ${this.manifest.segments?.length || 0} segments`);
+            console.log('[MANIFEST] Timing config:', this.manifest.timing);
+
+            // Apply timing config from manifest
+            if (this.manifest.timing) {
+                this.establishingTimeoutMs = this.manifest.timing.establishingTimeoutMs || 10000;
+                this.formMatchThreshold = this.manifest.timing.formMatchThreshold || 0.45;
+            }
+
+            return this.manifest;
+        } catch (error) {
+            console.warn('[MANIFEST] Failed to generate manifest:', error);
+            return null;
+        }
+    }
+
+    initInterpolation() {
+        // Initialize interpolation system if available
+        if (window.YogaInterpolation) {
+            this.interpolationManager = new window.YogaInterpolation.InterpolationManager();
+            console.log('[INTERPOLATION] Manager initialized');
+
+            // Initialize ghost renderer for target pose during transitions
+            const ctx = this.elements.canvas?.getContext('2d');
+            if (ctx) {
+                this.ghostRenderer = new window.YogaInterpolation.GhostSkeletonRenderer(ctx, {
+                    color: 'rgba(0, 255, 255, 0.85)',  // Bright cyan to match target pose
+                    lineWidth: 5,
+                    fadeInDuration: 500,
+                    fadeOutDuration: 300
+                });
+            }
+        } else {
+            console.warn('[INTERPOLATION] YogaInterpolation not available - using instant transitions');
+        }
+    }
+
+    // === SEGMENT-BASED STATE MACHINE ===
+
+    async loadSegment(segmentIndex) {
+        if (!this.manifest || !this.manifest.segments) {
+            console.warn('[SEGMENT] No manifest available, falling back to legacy');
+            return this.loadPose(segmentIndex);
+        }
+
+        if (segmentIndex >= this.manifest.segments.length) {
+            console.log('[SEGMENT] All segments complete');
+            return this.completeSession();
+        }
+
+        this.currentSegmentIndex = segmentIndex;
+        this.currentSegment = this.manifest.segments[segmentIndex];
+        const segment = this.currentSegment;
+
+        console.log(`\n========== LOADING SEGMENT ${segmentIndex}/${this.manifest.segments.length} ==========`);
+        console.log(`Pose: ${segment.name}, Side: ${segment.side || 'none'}, Bridge: ${segment.isBridge}`);
+
+        // Find matching pose in legacy poses array for UI compatibility
+        this.currentPose = this.poses.find(p => p.id === segment.poseId) || {
+            id: segment.poseId,
+            name: segment.name,
+            sanskrit: segment.sanskrit,
+            instructions: segment.instructions || [],
+            image: segment.image,
+            reference_landmarks: segment.landmarks?.active,
+            reference_angles: segment.angles?.active
+        };
+        this.currentPoseIndex = segmentIndex;
+
+        // Reset timing
+        this.poseTimeTotal = Math.floor(segment.holdDurationMs / 1000);
+        this.poseTimeRemaining = this.poseTimeTotal;
+        this.goodFormTime = 0;
+        this.poseMidpointPlayed = false;
+        this.poseTimerStarted = false;
+        this.establishingStartTime = null;
+
+        // Reset smoothing and warmup for target pose overlay
+        this.smoothedLandmarks = null;
+        this.smoothedTargetPosition = null;
+        this.targetPoseWarmupFrames = 0;  // Require new warmup before showing skeleton
+
+        // Check if this is a rotation switch (right side to left side)
+        const isRotationStart = segment.isRotationStart && segment.rotationSide === 'left';
+        if (isRotationStart) {
+            console.log('[ROTATION] Switching to LEFT side');
+        }
+
+        // Update UI
+        this.updateSegmentUI(segment);
+
+        // Start interpolation immediately (continuous flow)
+        const prevSegment = segmentIndex > 0 ? this.manifest.segments[segmentIndex - 1] : null;
+        if (prevSegment && this.interpolationManager) {
+            // Start skeleton morphing in background - don't wait
+            this.runInterpolation(prevSegment, segment);
+        }
+
+        // === STATE: INSTRUCTIONS ===
+        // Voice plays WHILE user is getting into position (form detection ON)
+        this.setSegmentState(SessionState.INSTRUCTIONS);
+        console.log(`[STATE] INSTRUCTIONS - Voice plays while user gets into position`);
+
+        // Track that we're waiting for calibration
+        this.audioComplete = false;
+        this.formCalibrated = false;
+        this.establishingStartTime = Date.now();
+
+        // Play pose introduction voice
+        this.playPoseStart(segmentIndex).then(() => {
+            this.audioComplete = true;
+            console.log('[VOICE] Audio complete, checking form...');
+            this.checkReadyForHold();
+        }).catch(err => {
+            console.warn('[VOICE] Error:', err);
+            this.audioComplete = true;
+            this.checkReadyForHold();
+        });
+
+        // Form detection is now active - timer will start when:
+        // 1. Audio is complete AND
+        // 2. Form matches threshold (or timeout)
+        // This is checked in runTimerLoop via checkReadyForHold()
+    }
+
+    checkReadyForHold() {
+        // Called when audio completes or form matches
+        if (this.audioComplete && this.formCalibrated) {
+            // Both conditions met - start the hold timer
+            console.log('[STATE] Ready for hold - starting timer');
+            this.setSegmentState(SessionState.ACTIVE_HOLD);
+            this.poseTimerStarted = true;
+        }
+    }
+
+    async runInterpolation(fromSegment, toSegment) {
+        if (!this.interpolationManager) {
+            return Promise.resolve();
+        }
+
+        const fromLandmarks = fromSegment.landmarks?.active || [];
+        const toLandmarks = toSegment.landmarks?.active || [];
+        const durationMs = toSegment.interpolation?.durationMs || 3000;
+        const easing = toSegment.interpolation?.easing || 'easeInOut';
+
+        console.log(`[INTERPOLATION] Starting: ${durationMs}ms, easing: ${easing}`);
+
+        return new Promise((resolve) => {
+            this.interpolator = this.interpolationManager.create(
+                'main',
+                fromLandmarks,
+                toLandmarks,
+                durationMs,
+                easing
+            );
+
+            this.interpolator.onComplete = () => {
+                console.log('[INTERPOLATION] Complete');
+                this.interpolator = null;
+                resolve();
+            };
+
+            // Run interpolation loop
+            const interpolationLoop = () => {
+                if (!this.interpolator || this.interpolator.isFinished()) {
+                    resolve();
+                    return;
+                }
+
+                this.interpolationManager.updateAll();
+                requestAnimationFrame(interpolationLoop);
+            };
+
+            interpolationLoop();
+        });
+    }
+
+    setSegmentState(newState) {
+        const oldState = this.segmentState;
+        this.segmentState = newState;
+        this.state = newState;  // Keep legacy state in sync
+
+        console.log(`[STATE] ${oldState} -> ${newState}`);
+        this.broadcastState();
+    }
+
+    updateSegmentUI(segment) {
+        // Update pose name with side indicator
+        let displayName = segment.name;
+        if (segment.side) {
+            displayName += ` (${segment.side.charAt(0).toUpperCase() + segment.side.slice(1)})`;
+        }
+        if (segment.isBridge) {
+            displayName += ' [transition]';
+        }
+
+        this.elements.poseName.textContent = displayName;
+        this.elements.poseSanskrit.textContent = segment.sanskrit || '';
+        this.elements.poseInstructions.innerHTML = (segment.instructions || [])
+            .map(inst => `<li>${inst}</li>`)
+            .join('');
+
+        // Show pose image
+        const poseImage = document.getElementById('pose-reference-image');
+        if (poseImage && segment.image) {
+            poseImage.src = segment.image;
+            poseImage.style.display = 'block';
+        }
+
+        this.updateQueueDisplay();
+    }
+
+    // Check if we should transition from ESTABLISHING to ACTIVE_HOLD
+    checkEstablishingTransition() {
+        if (this.segmentState !== SessionState.ESTABLISHING) return;
+
+        const elapsedMs = Date.now() - (this.establishingStartTime || Date.now());
+        const formScore = this.matchScore / 100;
+
+        // Transition to ACTIVE_HOLD if:
+        // 1. Form score meets threshold, OR
+        // 2. Establishing timeout exceeded (accessibility)
+        if (formScore >= this.formMatchThreshold || elapsedMs >= this.establishingTimeoutMs) {
+            if (formScore >= this.formMatchThreshold) {
+                console.log(`[STATE] Form matched! Score: ${Math.round(this.matchScore)}%`);
+            } else {
+                console.log(`[STATE] Establishing timeout - auto-starting (accessibility)`);
+            }
+
+            this.setSegmentState(SessionState.ACTIVE_HOLD);
+            this.poseTimerStarted = true;
+        }
+    }
+
+    async generateVoiceScript() {
+        try {
             const params = new URLSearchParams(window.location.search);
-            const sessionData = {
-                duration: parseInt(params.get('duration')) || 30,
-                focus: params.get('focus') || 'all',
-                poses: this.sessionQueue.map(p => ({
+
+            // Use manifest segments if available, otherwise fall back to sessionQueue
+            let posesForVoice;
+            if (this.useManifest && this.manifest?.segments) {
+                console.log('%c[VOICE] ========== USING MANIFEST SEGMENTS ==========', 'color: #7c9a92; font-weight: bold');
+                console.log('[VOICE] Manifest segments:', this.manifest.segments.length);
+
+                // Convert manifest segments to voice script format
+                posesForVoice = this.manifest.segments.map((seg, i) => {
+                    // Find the original pose data for instructions
+                    const originalPose = this.poses.find(p => p.id === seg.poseId) || {};
+
+                    console.log(`[VOICE] Segment ${i}: ${seg.name} (side=${seg.side || 'none'}, rotation=${seg.rotationSide || 'none'})`);
+
+                    return {
+                        id: seg.poseId,
+                        name: seg.name,
+                        duration_seconds: [Math.floor(seg.holdDurationMs / 1000)],
+                        instructions: seg.instructions || originalPose.instructions || [],
+                        phase: seg.isBridge ? 'transition' : 'main',
+                        side: seg.side,  // Pass side info for bilateral voice cues
+                        isRotationStart: seg.isRotationStart || false,
+                        rotationSide: seg.rotationSide || null,
+                        isFirstInRotation: seg.isFirstInRotation || false,
+                        isLastInRotation: seg.isLastInRotation || false
+                    };
+                });
+            } else {
+                // Legacy: use sessionQueue
+                console.log('%c[VOICE] ========== USING LEGACY SESSION QUEUE ==========', 'color: #c97b7b; font-weight: bold');
+                console.log('[VOICE] sessionQueue length:', this.sessionQueue.length);
+                this.sessionQueue.forEach((p, i) => {
+                    console.log(`[VOICE] Queue[${i}]: ${p.name}`);
+                });
+
+                posesForVoice = this.sessionQueue.map(p => ({
                     id: p.id,
                     name: p.name,
                     duration_seconds: p.duration_seconds,
                     instructions: p.instructions,
                     phase: p.phase
-                }))
+                }));
+            }
+
+            const sessionData = {
+                duration: parseInt(params.get('duration')) || 30,
+                focus: params.get('focus') || 'all',
+                poses: posesForVoice,
+                style: this.manifest?.timing?.sessionStyle || params.get('style') || 'vinyasa',
+                breathCues: this.manifest?.timing?.breathCues ?? true
             };
 
             console.log('%c[VOICE] ========== GENERATING VOICE SCRIPT ==========', 'color: #d4a574; font-weight: bold; font-size: 14px');
@@ -387,11 +795,76 @@ class YogaSession {
     }
 
     getScriptItemsForTiming(timing, poseIndex = null) {
+        // Guard against null/undefined voiceScript
+        if (!this.voiceScript || !Array.isArray(this.voiceScript)) {
+            console.warn('[VOICE] voiceScript not available');
+            return [];
+        }
         return this.voiceScript.filter(item => {
+            if (!item) return false;  // Skip null/undefined items
             if (item.timing !== timing) return false;
             if (poseIndex !== null && item.pose_index !== undefined && item.pose_index !== poseIndex) return false;
             return true;
         });
+    }
+
+    /**
+     * Unlock audio playback by initiating a play action during a user gesture.
+     * This is required by browser autoplay policies - audio.play() must be called
+     * directly within a user-initiated event handler (click, touch, etc.)
+     */
+    unlockAudio() {
+        // Prevent multiple unlock attempts
+        if (this.audioUnlocked) {
+            console.log('[AUDIO] Already unlocked, skipping');
+            return;
+        }
+
+        console.log('[AUDIO] Unlocking audio on user gesture...');
+
+        // Minimal silent WAV data URL (works in all browsers)
+        const silentAudio = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+        // Unlock voice audio
+        if (this.elements.voiceAudio) {
+            const audio = this.elements.voiceAudio;
+            audio.volume = 0;  // Silent
+            audio.src = silentAudio;
+
+            // Play and immediately pause to unlock
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    audio.pause();
+                    audio.volume = this.voiceVolume ?? 0.8;  // Fallback if undefined
+                    audio.src = '';  // Clear the silent audio
+                    console.log('[AUDIO] Voice audio unlocked successfully');
+                    this.audioUnlocked = true;
+                }).catch(err => {
+                    console.warn('[AUDIO] Could not unlock voice audio:', err.message);
+                    // Still mark as attempted to prevent repeated failures
+                    this.audioUnlocked = true;
+                });
+            }
+        }
+
+        // Also unlock ambient audio if present
+        if (this.elements.ambientAudio) {
+            const ambient = this.elements.ambientAudio;
+            ambient.volume = 0;
+            ambient.src = silentAudio;  // Must set src before play
+            const ambientPlayPromise = ambient.play();
+            if (ambientPlayPromise !== undefined) {
+                ambientPlayPromise.then(() => {
+                    ambient.pause();
+                    ambient.volume = this.ambientVolume ?? 0.3;  // Fallback if undefined
+                    ambient.src = '';  // Clear silent audio
+                    console.log('[AUDIO] Ambient audio unlocked successfully');
+                }).catch(err => {
+                    console.warn('[AUDIO] Could not unlock ambient audio:', err.message);
+                });
+            }
+        }
     }
 
     async playVoiceItem(item) {
@@ -466,11 +939,22 @@ class YogaSession {
     }
 
     async playVoiceSequence(items) {
+        // Guard against null/undefined items
+        if (!items || !Array.isArray(items)) {
+            console.warn('[VOICE] Invalid items array:', items);
+            return;
+        }
+
+        if (items.length === 0) {
+            console.log('[VOICE] Empty sequence, nothing to play');
+            return;
+        }
+
         console.log(`%c[VOICE] Playing sequence: ${items.length} items`, 'color: #7c9a92; font-weight: bold');
 
         // Log all items we're about to play
         items.forEach((item, i) => {
-            console.log(`  [${i + 1}] ${item.type}: "${item.text?.substring(0, 60)}..."`);
+            console.log(`  [${i + 1}] ${item?.type || 'unknown'}: "${item?.text?.substring(0, 60) || '(no text)'}..."`);
         });
 
         for (let i = 0; i < items.length; i++) {
@@ -529,13 +1013,13 @@ class YogaSession {
 
         await this.playVoiceSequence(startItems);
 
-        // Then play the hold cue (non-blocking so timer can start)
+        // Then play the hold cues (non-blocking so timer can start)
         const holdItems = this.voiceScript.filter(item =>
             item.timing === 'pose_holding' && item.pose_index === poseIndex
         );
         if (holdItems.length > 0) {
-            console.log(`%c[VOICE] Playing hold cue for pose ${poseIndex}`, 'color: #d4a574');
-            this.playVoiceItem(holdItems[0]).catch(err => console.warn('Hold cue error:', err));
+            console.log(`%c[VOICE] Playing ${holdItems.length} hold cue(s) for pose ${poseIndex}`, 'color: #d4a574');
+            this.playVoiceSequence(holdItems).catch(err => console.warn('Hold cue error:', err));
         }
     }
 
@@ -544,7 +1028,8 @@ class YogaSession {
             item.timing === 'pose_midpoint' && item.pose_index === poseIndex
         );
         if (items.length > 0 && !this.isVoicePlaying) {
-            await this.playVoiceItem(items[0]);
+            console.log(`%c[VOICE] Playing ${items.length} midpoint cue(s) for pose ${poseIndex}`, 'color: #d4a574');
+            await this.playVoiceSequence(items);
         }
     }
 
@@ -833,6 +1318,32 @@ class YogaSession {
             // Load audio resources
             updateLoadingStatus('Loading audio...');
             await this.loadAudioResources();
+
+            // Initialize interpolation system
+            this.initInterpolation();
+
+            // Try to generate manifest (new system)
+            // Note: params already declared above, reuse it
+            updateLoadingStatus('Generating session...');
+            const manifestDuration = parseInt(params.get('duration')) || 30;
+            const manifestFocus = params.get('focus') || 'all';
+            const manifestDifficulty = params.get('difficulty') || 'beginner';
+
+            // Generate manifest for new flow
+            if (mode === 'custom') {
+                const manifestPoseIds = params.get('poses')?.split(',') || [];
+                await this.generateManifest(manifestDuration, manifestFocus, manifestDifficulty, manifestPoseIds);
+            } else {
+                await this.generateManifest(manifestDuration, manifestFocus, manifestDifficulty);
+            }
+
+            // Enable manifest mode if we got a valid manifest
+            if (this.manifest && this.manifest.segments && this.manifest.segments.length > 0) {
+                this.useManifest = true;
+                console.log('[INIT] Using manifest-based flow');
+            } else {
+                console.log('[INIT] Falling back to legacy flow');
+            }
 
             // Generate voice script (may take a while)
             updateLoadingStatus('Preparing voice guidance...');
@@ -1123,6 +1634,10 @@ class YogaSession {
         this.elements.calibrationOverlay.style.display = 'none';
         this.elements.countdownOverlay.style.display = 'flex';
 
+        // CRITICAL: Unlock audio on user gesture (browser autoplay policy)
+        // This must happen during the click handler, not later in setTimeout/setInterval
+        this.unlockAudio();
+
         // Quick 3-second countdown
         let count = 3;
         this.elements.countdownNumber.textContent = count;
@@ -1157,6 +1672,15 @@ class YogaSession {
         };
         this.currentFormLevel = 'needsWork';
 
+        // Reset per-pose performance tracking
+        this.posePerformance = [];
+        this.currentPoseFormTime = {
+            perfect: 0,
+            good: 0,
+            okay: 0,
+            needsWork: 0
+        };
+
         // Set neutral UI state during intro
         if (this.elements.formStatus) {
             this.elements.formStatus.textContent = 'Get ready...';
@@ -1188,15 +1712,21 @@ class YogaSession {
         }
         console.log('Session intro complete, loading first pose...');
 
-        // Now intro is done - load first pose
+        // Now intro is done - load first pose/segment
         this.introPlayed = true;
         console.log('Intro complete, introPlayed:', this.introPlayed);
 
         // Start the timer loop first (it will handle positioning state)
         this.runTimerLoop();
 
-        // Load first pose (will set state to positioning, then active)
-        this.loadPose(0);
+        // Load first pose/segment based on mode
+        if (this.useManifest && this.manifest?.segments?.length > 0) {
+            console.log('[SESSION] Starting manifest-based flow');
+            this.loadSegment(0);
+        } else {
+            console.log('[SESSION] Starting legacy flow');
+            this.loadPose(0);
+        }
     }
 
     async loadPose(index) {
@@ -1211,8 +1741,12 @@ class YogaSession {
         this.currentPose = this.sessionQueue[index];
         this.currentPoseIndex = index;
         console.log(`Pose: ${this.currentPose.name}, duration: ${this.currentPose.duration_seconds[0]}s`);
-        console.log(`Reference landmarks: ${this.currentPose.reference_landmarks?.length || 'none'}`);
-        console.log(`Reference angles:`, this.currentPose.reference_angles);
+        if (this.currentPose.variations && this.currentPose.variations.length > 0) {
+            console.log(`Variations: ${this.currentPose.variations.length} (${this.currentPose.variations.map(v => v.name).join(', ')})`);
+        } else {
+            console.log(`Reference landmarks: ${this.currentPose.reference_landmarks?.length || 'none'}`);
+            console.log(`Reference angles:`, this.currentPose.reference_angles);
+        }
 
         this.poseTimeTotal = this.currentPose.duration_seconds[0];
         this.poseTimeRemaining = this.poseTimeTotal;
@@ -1221,10 +1755,21 @@ class YogaSession {
         this.poseTimerStarted = false;
         this.smoothedLandmarks = null;  // Reset smoothing for fresh pose
         this.smoothedTargetPosition = null;  // Reset target pose smoothing
+        this.targetPoseWarmupFrames = 0;  // Require warmup before showing skeleton
 
         // Reset form tracking for new pose
         this.currentFormLevel = 'needsWork';
         this.isFormGood = false;
+
+        // Reset variation tracking for new pose
+        this.currentMatchedVariation = null;
+        this.variationMatchCounts = {};
+
+        // Log if pose has variations
+        if (this.currentPose.variations && this.currentPose.variations.length > 0) {
+            console.log(`Pose has ${this.currentPose.variations.length} variations:`,
+                this.currentPose.variations.map(v => v.name).join(', '));
+        }
 
         // Update UI with pose info
         this.elements.poseName.textContent = this.currentPose.name;
@@ -1290,9 +1835,10 @@ class YogaSession {
     }
 
     runDetectionLoop() {
-        // Allow loop to run during instructions state, but skip form detection
-        // IMPORTANT: Include 'transition' to prevent freezing between poses
-        const validStates = ['active', 'paused', 'intro', 'positioning', 'instructions', 'transition'];
+        // Allow loop to run during various states, but skip form detection for some
+        // IMPORTANT: Include all states to prevent freezing between poses
+        const validStates = ['active', 'paused', 'intro', 'positioning', 'instructions', 'transition',
+                            'transitioning', 'establishing'];
         if (!validStates.includes(this.state)) return;
 
         const video = this.elements.video;
@@ -1316,10 +1862,50 @@ class YogaSession {
                 if (this.state === 'instructions') {
                     this.drawLandmarks(ctx, this.currentLandmarks);
                     // Show target pose during instructions so user knows what to aim for
-                    if (this.currentPose && this.currentPose.reference_landmarks) {
+                    if (this.hasReferenceLandmarks()) {
                         this.drawTargetPose(ctx);
                     }
                     this.elements.matchScore.textContent = '--';
+                    this.broadcastState();
+                    requestAnimationFrame(() => this.runDetectionLoop());
+                    return;
+                }
+
+                // During transitioning, show interpolating ghost skeleton
+                if (this.state === 'transitioning') {
+                    this.drawLandmarks(ctx, this.currentLandmarks);
+                    // Draw interpolating target if available
+                    if (this.interpolator && this.ghostRenderer) {
+                        const interpLandmarks = this.interpolator.getCurrentLandmarks();
+                        this.ghostRenderer.updateFade(performance.now());
+                        this.ghostRenderer.show();
+                        this.ghostRenderer.render(interpLandmarks);
+                    } else if (this.hasReferenceLandmarks()) {
+                        this.drawTargetPose(ctx);
+                    }
+                    this.elements.matchScore.textContent = '--';
+                    this.broadcastState();
+                    requestAnimationFrame(() => this.runDetectionLoop());
+                    return;
+                }
+
+                // During establishing, evaluate form but timer doesn't run yet
+                if (this.state === 'establishing') {
+                    this.matchScore = this.calculatePoseMatch(this.currentLandmarks);
+                    this.elements.matchScore.textContent = `${Math.round(this.matchScore)}%`;
+                    this.updateFormStatus(this.matchScore);
+
+                    const wasFormGood = this.isFormGood;
+                    this.isFormGood = this.currentFormLevel === 'perfect' || this.currentFormLevel === 'good';
+
+                    if (!wasFormGood && this.isFormGood) {
+                        console.log(`>>> Form established! Score: ${Math.round(this.matchScore)}%`);
+                    }
+
+                    this.drawLandmarks(ctx, this.currentLandmarks);
+                    if (this.hasReferenceLandmarks()) {
+                        this.drawTargetPose(ctx);
+                    }
                     this.broadcastState();
                     requestAnimationFrame(() => this.runDetectionLoop());
                     return;
@@ -1356,7 +1942,7 @@ class YogaSession {
                     this.drawLandmarks(ctx, this.currentLandmarks);
 
                     // Draw target pose skeleton overlay
-                    if (this.currentPose && this.currentPose.reference_landmarks) {
+                    if (this.hasReferenceLandmarks()) {
                         this.drawTargetPose(ctx);
                     }
                 } else {
@@ -1490,16 +2076,40 @@ class YogaSession {
     }
 
     drawTargetPose(ctx) {
-        if (!this.currentPose?.reference_landmarks || !this.currentLandmarks) {
+        // Get reference landmarks from manifest segment or pose
+        let refLandmarks = null;
+
+        // First try to get landmarks from manifest segment (preferred)
+        if (this.useManifest && this.currentSegment?.landmarks?.active) {
+            refLandmarks = this.currentSegment.landmarks.active;
+        }
+        // Then try variations
+        else if (this.currentPose?.variations && this.currentPose.variations.length > 0) {
+            if (this.currentMatchedVariation) {
+                const matchedVar = this.currentPose.variations.find(v => v.id === this.currentMatchedVariation.id);
+                refLandmarks = matchedVar?.reference_landmarks;
+            }
+            if (!refLandmarks) {
+                refLandmarks = this.currentPose.variations[0]?.reference_landmarks;
+            }
+        }
+        // Finally try legacy pose-level landmarks
+        else {
+            refLandmarks = this.currentPose?.reference_landmarks;
+        }
+
+        // CRITICAL: Don't draw if we don't have BOTH reference AND user landmarks
+        if (!refLandmarks || refLandmarks.length === 0) {
+            this.targetPoseWarmupFrames = 0;  // Reset warmup
+            return;
+        }
+        if (!this.currentLandmarks || this.currentLandmarks.length === 0) {
+            this.targetPoseWarmupFrames = 0;  // Reset warmup
             return;
         }
 
-        const refLandmarks = this.currentPose.reference_landmarks;
+        // Validate user landmarks have required points
         const userLandmarks = this.currentLandmarks;
-        const width = ctx.canvas.width;
-        const height = ctx.canvas.height;
-
-        // Calculate user's body bounds (shoulders to ankles)
         const userLeftShoulder = userLandmarks[11];
         const userRightShoulder = userLandmarks[12];
         const userLeftHip = userLandmarks[23];
@@ -1507,28 +2117,127 @@ class YogaSession {
         const userLeftAnkle = userLandmarks[27];
         const userRightAnkle = userLandmarks[28];
 
+        // Check all required landmarks exist and have valid coordinates
+        if (!userLeftShoulder || !userRightShoulder || !userLeftHip ||
+            !userRightHip || !userLeftAnkle || !userRightAnkle) {
+            this.targetPoseWarmupFrames = 0;  // Reset warmup
+            return;
+        }
+
+        // Helper to validate a coordinate is a valid number in range
+        const isValidCoord = (val) => typeof val === 'number' && !isNaN(val) && isFinite(val);
+
+        // Validate all coordinates are valid numbers (not NaN/undefined)
+        if (!isValidCoord(userLeftHip.x) || !isValidCoord(userLeftHip.y) ||
+            !isValidCoord(userRightHip.x) || !isValidCoord(userRightHip.y) ||
+            !isValidCoord(userLeftShoulder.x) || !isValidCoord(userLeftShoulder.y) ||
+            !isValidCoord(userRightShoulder.x) || !isValidCoord(userRightShoulder.y) ||
+            !isValidCoord(userLeftAnkle.x) || !isValidCoord(userLeftAnkle.y) ||
+            !isValidCoord(userRightAnkle.x) || !isValidCoord(userRightAnkle.y)) {
+            this.targetPoseWarmupFrames = 0;  // Reset warmup
+            return;
+        }
+
+        // Check visibility - only draw if user body is reasonably visible
+        const avgVisibility = (
+            (userLeftShoulder.visibility || 0) +
+            (userRightShoulder.visibility || 0) +
+            (userLeftHip.visibility || 0) +
+            (userRightHip.visibility || 0)
+        ) / 4;
+
+        if (avgVisibility < 0.5) {
+            // User not clearly visible, don't show confusing skeleton
+            this.targetPoseWarmupFrames = 0;  // Reset warmup
+            return;
+        }
+
+        const width = ctx.canvas.width;
+        const height = ctx.canvas.height;
+
         // User center (midpoint of hips)
         const rawCenterX = (userLeftHip.x + userRightHip.x) / 2;
         const rawCenterY = (userLeftHip.y + userRightHip.y) / 2;
+
+        // Validate center coordinates are within reasonable bounds (user is actually in frame)
+        // Using explicit checks to handle NaN (NaN comparisons return false)
+        if (!(rawCenterX >= 0.1 && rawCenterX <= 0.9 && rawCenterY >= 0.1 && rawCenterY <= 0.9)) {
+            this.targetPoseWarmupFrames = 0;  // Reset warmup
+            return;
+        }
 
         // User body height (shoulders to ankles)
         const userShoulderY = (userLeftShoulder.y + userRightShoulder.y) / 2;
         const userAnkleY = (userLeftAnkle.y + userRightAnkle.y) / 2;
         const rawBodyHeight = Math.abs(userAnkleY - userShoulderY);
 
-        // Reference pose center and scale
-        const refLeftHip = refLandmarks[23];
-        const refRightHip = refLandmarks[24];
-        const refLeftShoulder = refLandmarks[11];
-        const refRightShoulder = refLandmarks[12];
-        const refLeftAnkle = refLandmarks[27];
-        const refRightAnkle = refLandmarks[28];
+        // Validate body height is reasonable (10-80% of frame - not too small or too big)
+        // Using >= and <= to properly handle NaN (NaN comparisons return false)
+        if (!(rawBodyHeight >= 0.1 && rawBodyHeight <= 0.8)) {
+            this.targetPoseWarmupFrames = 0;  // Reset warmup
+            return;
+        }
+
+        // Warmup period: require several consecutive valid frames before showing skeleton
+        // This prevents jittery skeleton appearance when user is still positioning
+        this.targetPoseWarmupFrames = (this.targetPoseWarmupFrames || 0) + 1;
+
+        // Wait for at least 10 good frames (~333ms at 30fps) before showing
+        if (this.targetPoseWarmupFrames < 10) {
+            return;
+        }
+
+        // Reference pose landmarks - handle both array and object formats
+        let refLeftHip, refRightHip, refLeftShoulder, refRightShoulder, refLeftAnkle, refRightAnkle;
+
+        if (Array.isArray(refLandmarks)) {
+            refLeftHip = refLandmarks[23];
+            refRightHip = refLandmarks[24];
+            refLeftShoulder = refLandmarks[11];
+            refRightShoulder = refLandmarks[12];
+            refLeftAnkle = refLandmarks[27];
+            refRightAnkle = refLandmarks[28];
+        } else {
+            // Named landmarks format
+            refLeftHip = refLandmarks.find?.(l => l.name === 'LEFT_HIP') || refLandmarks[23];
+            refRightHip = refLandmarks.find?.(l => l.name === 'RIGHT_HIP') || refLandmarks[24];
+            refLeftShoulder = refLandmarks.find?.(l => l.name === 'LEFT_SHOULDER') || refLandmarks[11];
+            refRightShoulder = refLandmarks.find?.(l => l.name === 'RIGHT_SHOULDER') || refLandmarks[12];
+            refLeftAnkle = refLandmarks.find?.(l => l.name === 'LEFT_ANKLE') || refLandmarks[27];
+            refRightAnkle = refLandmarks.find?.(l => l.name === 'RIGHT_ANKLE') || refLandmarks[28];
+        }
+
+        // Validate reference landmarks exist and have valid coordinates
+        if (!refLeftHip || !refRightHip || !refLeftShoulder || !refRightShoulder) {
+            return;
+        }
+
+        // Check reference landmark coordinates are valid numbers
+        if (!isValidCoord(refLeftHip.x) || !isValidCoord(refLeftHip.y) ||
+            !isValidCoord(refRightHip.x) || !isValidCoord(refRightHip.y) ||
+            !isValidCoord(refLeftShoulder.x) || !isValidCoord(refLeftShoulder.y) ||
+            !isValidCoord(refRightShoulder.x) || !isValidCoord(refRightShoulder.y)) {
+            console.warn('[SKELETON] Invalid reference landmark coordinates');
+            return;
+        }
 
         const refCenterX = (refLeftHip.x + refRightHip.x) / 2;
         const refCenterY = (refLeftHip.y + refRightHip.y) / 2;
         const refShoulderY = (refLeftShoulder.y + refRightShoulder.y) / 2;
-        const refAnkleY = (refLeftAnkle.y + refRightAnkle.y) / 2;
+
+        // Safely calculate ankle Y with fallback
+        let refAnkleY = refCenterY + 0.3;  // Default fallback
+        if (refLeftAnkle && refRightAnkle &&
+            isValidCoord(refLeftAnkle.y) && isValidCoord(refRightAnkle.y)) {
+            refAnkleY = (refLeftAnkle.y + refRightAnkle.y) / 2;
+        }
+
         const refBodyHeight = Math.abs(refAnkleY - refShoulderY);
+        // Prevent division by zero or extremely small values
+        if (!isValidCoord(refBodyHeight) || refBodyHeight < 0.05) {
+            console.warn('[SKELETON] Invalid reference body height:', refBodyHeight);
+            return;
+        }
 
         // Apply smoothing to target position to prevent jitter
         if (!this.smoothedTargetPosition) {
@@ -1548,23 +2257,36 @@ class YogaSession {
         const userCenterY = this.smoothedTargetPosition.centerY;
         const userBodyHeight = this.smoothedTargetPosition.bodyHeight;
 
-        // Scale factor to match user's body
-        const scale = userBodyHeight / (refBodyHeight || 0.5);
+        // Scale factor to match user's body size
+        const scale = userBodyHeight / refBodyHeight;
+
+        // Validate scale is reasonable (0.2x to 5x range)
+        if (!isValidCoord(scale) || scale < 0.2 || scale > 5) {
+            console.warn('[SKELETON] Invalid scale factor:', scale);
+            return;
+        }
 
         // Transform reference landmark to user's coordinate space
         const transformLandmark = (ref) => {
-            // Translate to origin, scale, then translate to user position
+            if (!ref) return null;
+            if (!isValidCoord(ref.x) || !isValidCoord(ref.y)) return null;
             const x = (ref.x - refCenterX) * scale + userCenterX;
             const y = (ref.y - refCenterY) * scale + userCenterY;
-            return { x, y };
+            // Clamp to valid screen range with some margin for limbs extending off-screen
+            return {
+                x: Math.max(-0.5, Math.min(1.5, x)),
+                y: Math.max(-0.5, Math.min(1.5, y))
+            };
         };
 
-        // Draw target pose as semi-transparent YELLOW outline
+        // Draw target pose as bright CYAN outline (distinct from white user skeleton)
         ctx.save();
-        ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = '#fbbf24';  // Yellow/gold color for target pose
-        ctx.lineWidth = 4;
-        ctx.setLineDash([8, 8]);
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = '#00FFFF';  // Bright cyan - high contrast with user's white skeleton
+        ctx.lineWidth = 5;
+        ctx.shadowColor = '#00FFFF';
+        ctx.shadowBlur = 12;
+        ctx.setLineDash([]);  // Solid line for clarity
 
         // Define pose connections
         const connections = [
@@ -1727,11 +2449,74 @@ class YogaSession {
     }
 
     calculatePoseMatch(userLandmarks) {
+        // Handle poses with multiple variations
+        if (this.currentPose?.variations && this.currentPose.variations.length > 0) {
+            return this.calculateBestVariationMatch(userLandmarks);
+        }
+
+        // Legacy: single reference angles at pose level
         if (!this.currentPose?.reference_angles) return 0;
 
         const refAngles = this.currentPose.reference_angles;
         const userAngles = this.calculateAngles(userLandmarks);
 
+        return this.calculateAngleMatch(refAngles, userAngles);
+    }
+
+    /**
+     * Calculate match against all variations and return the best score.
+     * Tracks which variation the user is matching most frequently.
+     */
+    calculateBestVariationMatch(userLandmarks) {
+        const userAngles = this.calculateAngles(userLandmarks);
+        let bestScore = 0;
+        let bestVariation = null;
+
+        for (const variation of this.currentPose.variations) {
+            if (!variation.reference_angles) continue;
+
+            const score = this.calculateAngleMatch(variation.reference_angles, userAngles);
+            if (score > bestScore) {
+                bestScore = score;
+                bestVariation = variation;
+            }
+        }
+
+        // Track which variation is being matched (for reporting)
+        if (bestVariation && bestScore >= 45) {  // Only count if form is "good" or better
+            const varId = bestVariation.id;
+            this.variationMatchCounts[varId] = (this.variationMatchCounts[varId] || 0) + 1;
+
+            // Update current matched variation if this one has most matches
+            const maxCount = Math.max(...Object.values(this.variationMatchCounts));
+            if (this.variationMatchCounts[varId] === maxCount) {
+                this.currentMatchedVariation = {
+                    id: bestVariation.id,
+                    name: bestVariation.name
+                };
+            }
+        }
+
+        return bestScore;
+    }
+
+    /**
+     * Check if the current pose has reference landmarks available
+     * (either from variations or legacy pose-level).
+     */
+    hasReferenceLandmarks() {
+        if (!this.currentPose) return false;
+        if (this.currentPose.reference_landmarks) return true;
+        if (this.currentPose.variations && this.currentPose.variations.length > 0) {
+            return this.currentPose.variations.some(v => v.reference_landmarks);
+        }
+        return false;
+    }
+
+    /**
+     * Calculate match score between reference angles and user angles.
+     */
+    calculateAngleMatch(refAngles, userAngles) {
         let totalDiff = 0;
         let angleCount = 0;
 
@@ -1803,19 +2588,79 @@ class YogaSession {
             }
 
             if (this.state === 'instructions') {
-                // During instructions, show that we're explaining the pose
-                this.elements.poseTimer.textContent = 'Listen...';
+                // During instructions, voice plays while user gets into position
+                // Form detection is ACTIVE - check if user has matched the pose
+                if (this.isFormGood && !this.formCalibrated) {
+                    this.formCalibrated = true;
+                    console.log('[FORM] User matched pose threshold during instructions');
+                    this.checkReadyForHold();
+                }
+
+                // Check for timeout if user can't get into position
+                const elapsed = Date.now() - (this.establishingStartTime || Date.now());
+                if (elapsed > this.establishingTimeoutMs && !this.formCalibrated) {
+                    console.log('[FORM] Timeout - starting timer anyway');
+                    this.formCalibrated = true;
+                    this.checkReadyForHold();
+                }
+
+                // Show form feedback
+                if (this.isFormGood) {
+                    this.elements.poseTimer.textContent = 'Great!';
+                    this.elements.poseTimer.style.color = '#4ade80';
+                    if (this.elements.formStatus) {
+                        this.elements.formStatus.innerHTML = '<i data-lucide="check"></i> Hold that form';
+                        this.elements.formStatus.style.color = '#4ade80';
+                        this.refreshIcons();
+                    }
+                } else {
+                    this.elements.poseTimer.textContent = 'Get into pose';
+                    this.elements.poseTimer.style.color = '#a8c5be';
+                    if (this.elements.formStatus) {
+                        this.elements.formStatus.innerHTML = '<i data-lucide="target"></i> Match the guide';
+                        this.elements.formStatus.style.color = '#a8c5be';
+                        this.refreshIcons();
+                    }
+                }
+                return;
+            }
+
+            if (this.state === 'transitioning') {
+                // During interpolation/transition animation
+                this.elements.poseTimer.textContent = 'Flow...';
                 this.elements.poseTimer.style.color = '#a8c5be';
                 if (this.elements.formStatus) {
-                    this.elements.formStatus.innerHTML = '<i data-lucide="headphones"></i> Listening to instructions';
+                    this.elements.formStatus.innerHTML = '<i data-lucide="wind"></i> Smooth transition';
                     this.elements.formStatus.style.color = '#a8c5be';
                     this.refreshIcons();
                 }
                 return;
             }
 
+            if (this.state === 'establishing') {
+                // User is getting into position, form detection is ON but timer paused
+                const elapsed = Date.now() - (this.establishingStartTime || Date.now());
+                const remaining = Math.max(0, Math.ceil((this.establishingTimeoutMs - elapsed) / 1000));
+
+                if (this.isFormGood) {
+                    this.elements.poseTimer.textContent = 'Great!';
+                    this.elements.poseTimer.style.color = '#4ade80';
+                } else if (remaining <= 5) {
+                    this.elements.poseTimer.textContent = `Starting in ${remaining}...`;
+                    this.elements.poseTimer.style.color = '#d4a574';
+                } else {
+                    this.elements.poseTimer.textContent = 'Get Into Pose';
+                    this.elements.poseTimer.style.color = '#d4a574';
+                }
+
+                // Check if we should transition to ACTIVE_HOLD
+                this.checkEstablishingTransition();
+                this.broadcastState();
+                return;
+            }
+
             if (this.state === 'transition') {
-                // During transition, show relax message
+                // During transition, show relax message (legacy)
                 this.elements.poseTimer.textContent = 'Relax...';
                 this.elements.poseTimer.style.color = '#a8c5be';
                 if (this.elements.formStatus) {
@@ -1827,7 +2672,7 @@ class YogaSession {
             }
 
             if (this.state === 'positioning') {
-                // During positioning, show waiting message
+                // During positioning, show waiting message (legacy)
                 this.elements.poseTimer.textContent = 'Get Ready';
                 this.elements.poseTimer.style.color = '#d4a574';
                 return;
@@ -1872,15 +2717,19 @@ class YogaSession {
             const progress = (this.sessionElapsed / this.sessionDuration) * 100;
             this.elements.sessionProgress.style.width = `${Math.min(100, progress)}%`;
 
-            // Track time in each form quality tier
+            // Track time in each form quality tier (session-wide and per-pose)
             if (this.currentFormLevel === 'perfect') {
                 this.formTimeTracking.perfect++;
+                this.currentPoseFormTime.perfect++;
             } else if (this.currentFormLevel === 'good') {
                 this.formTimeTracking.good++;
+                this.currentPoseFormTime.good++;
             } else if (this.currentFormLevel === 'okay') {
                 this.formTimeTracking.okay++;
+                this.currentPoseFormTime.okay++;
             } else {
                 this.formTimeTracking.needsWork++;
+                this.currentPoseFormTime.needsWork++;
             }
 
             // Pose timer counts down ONLY for Perfect/Good (green states)
@@ -1907,32 +2756,33 @@ class YogaSession {
                 this.playPoseMidpoint(this.currentPoseIndex);
             }
 
-            // Move to next pose when time runs out
+            // Move to next pose/segment when time runs out - CONTINUOUS FLOW
             if (this.poseTimeRemaining <= 0) {
-                console.log(`Pose ${this.currentPoseIndex} complete! Moving to next pose...`);
+                console.log(`Pose ${this.currentPoseIndex} complete! Flowing to next...`);
 
-                // Enter transition state - user can relax while we set up next pose
-                this.state = 'transition';
-                this.broadcastState();
+                // Capture pose performance before moving on
+                this.capturePosePerformance();
 
                 // Reset tracking for new pose
                 this.poseTimerStarted = false;
-                this.smoothedLandmarks = null;
                 this.isFormGood = false;
                 this.matchScore = 0;
+                this.audioComplete = false;
+                this.formCalibrated = false;
 
-                // Play pose completion voice (quick transition)
-                this.playPoseEnd(this.currentPoseIndex).then(() => {
-                    // Quick transition to next pose
-                    setTimeout(() => {
-                        this.currentPoseIndex++;
-                        this.loadPose(this.currentPoseIndex);
-                    }, 500);
-                }).catch(err => {
+                // Play pose end voice (non-blocking - flows into next)
+                this.playPoseEnd(this.currentPoseIndex).catch(err => {
                     console.warn('Voice error:', err);
+                });
+
+                // Immediately flow into next pose/segment (no break)
+                if (this.useManifest) {
+                    this.currentSegmentIndex++;
+                    this.loadSegment(this.currentSegmentIndex);
+                } else {
                     this.currentPoseIndex++;
                     this.loadPose(this.currentPoseIndex);
-                });
+                }
             }
         }, 1000);
     }
@@ -1965,12 +2815,95 @@ class YogaSession {
         this.broadcastState();
     }
 
+    /**
+     * Capture current pose performance for session report
+     */
+    capturePosePerformance() {
+        const pose = this.currentPose;
+        if (!pose) return;
+
+        const { perfect, good, okay, needsWork } = this.currentPoseFormTime;
+        const total = perfect + good + okay + needsWork;
+
+        // Calculate weighted score (same formula as final grade)
+        let avgScore = 0;
+        if (total > 0) {
+            avgScore = Math.round(((perfect * 100) + (good * 85) + (okay * 70) + (needsWork * 40)) / total);
+        }
+
+        // Determine which variation was used (if pose has variations)
+        let variationUsed = null;
+        if (pose.variations && pose.variations.length > 0 && this.currentMatchedVariation) {
+            variationUsed = {
+                id: this.currentMatchedVariation.id,
+                name: this.currentMatchedVariation.name
+            };
+        }
+
+        // Store pose performance
+        this.posePerformance.push({
+            id: pose.id,
+            name: pose.name,
+            sanskrit: pose.sanskrit || '',
+            image: pose.image || `/static/images/poses/${pose.id}.png`,
+            avgScore: avgScore,
+            formTime: { ...this.currentPoseFormTime },
+            side: this.currentSegment?.side || null,
+            variation: variationUsed
+        });
+
+        // Reset for next pose
+        this.currentPoseFormTime = {
+            perfect: 0,
+            good: 0,
+            okay: 0,
+            needsWork: 0
+        };
+
+        // Reset variation tracking for next pose
+        this.currentMatchedVariation = null;
+        this.variationMatchCounts = {};
+    }
+
+    /**
+     * Save session data to localStorage for the report page
+     */
+    saveSessionData() {
+        const { perfect, good, okay, needsWork } = this.formTimeTracking;
+        const total = perfect + good + okay + needsWork;
+
+        // Calculate overall score
+        let avgScore = 0;
+        if (total > 0) {
+            avgScore = Math.round(((perfect * 100) + (good * 85) + (okay * 70) + (needsWork * 40)) / total);
+        }
+
+        // Get session duration from URL params or manifest
+        const params = new URLSearchParams(window.location.search);
+        const duration = parseInt(params.get('duration')) || Math.round(this.sessionElapsed / 60);
+
+        const sessionData = {
+            duration: duration,
+            poses: this.posePerformance,
+            avgScore: avgScore,
+            formTracking: { ...this.formTimeTracking },
+            totalTime: this.sessionElapsed,
+            completedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem('lastYogaSession', JSON.stringify(sessionData));
+        console.log('[SESSION] Saved session data:', sessionData);
+    }
 
     endSession() {
         if (confirm('End this session early?')) {
+            // Capture current pose before ending
+            this.capturePosePerformance();
+            this.saveSessionData();
+
             this.state = 'complete';
             if (this.timerInterval) clearInterval(this.timerInterval);
-            window.location.href = '/yoga';
+            window.location.href = '/yoga/report';
         }
     }
 
@@ -1984,32 +2917,22 @@ class YogaSession {
         // Broadcast completion to remote
         this.broadcastState();
 
-        // Calculate final grade based on form quality time
-        const grade = this.calculateFinalGrade();
+        // Capture any remaining pose performance data
+        if (this.currentPose && this.currentPoseFormTime.perfect + this.currentPoseFormTime.good +
+            this.currentPoseFormTime.okay + this.currentPoseFormTime.needsWork > 0) {
+            this.capturePosePerformance();
+        }
+
+        // Save session data for report page
+        this.saveSessionData();
 
         // Play session end voice in background
         this.playSessionEnd().catch(err => console.warn('Voice error:', err));
 
+        // Redirect to wellness report after a brief pause for the voice to start
         setTimeout(() => {
-            const totalFormTime = this.formTimeTracking.perfect +
-                                  this.formTimeTracking.good +
-                                  this.formTimeTracking.okay +
-                                  this.formTimeTracking.needsWork;
-
-            const perfectPct = totalFormTime > 0 ? Math.round((this.formTimeTracking.perfect / totalFormTime) * 100) : 0;
-            const goodPct = totalFormTime > 0 ? Math.round((this.formTimeTracking.good / totalFormTime) * 100) : 0;
-            const okayPct = totalFormTime > 0 ? Math.round((this.formTimeTracking.okay / totalFormTime) * 100) : 0;
-
-            alert(`Session Complete!\n\n` +
-                  `Grade: ${grade.letter} (${grade.label})\n\n` +
-                  `Form Breakdown:\n` +
-                  `  Perfect: ${perfectPct}%\n` +
-                  `  Good: ${goodPct}%\n` +
-                  `  Okay: ${okayPct}%\n\n` +
-                  `Total time: ${this.formatTime(this.sessionElapsed)}\n` +
-                  `Poses completed: ${this.sessionQueue.length}`);
-            window.location.href = '/yoga';
-        }, 4000);
+            window.location.href = '/yoga/report';
+        }, 3000);
     }
 
     calculateFinalGrade() {

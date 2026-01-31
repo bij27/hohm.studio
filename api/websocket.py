@@ -5,6 +5,7 @@ import math
 import time
 from datetime import datetime
 from typing import Dict, Optional
+import config as cfg
 from core.posture_analyzer import PostureAnalyzer
 from core.calibration import Calibrator
 from services.session_manager import SessionManager
@@ -12,7 +13,8 @@ from models.schemas import CalibrationProfile, PostureStatus
 from models.database import save_session, save_log
 from middleware.auth import validate_token_format
 from middleware.security import validate_websocket_origin
-import config as cfg
+from utils.debug import debug_log as _debug_log
+from utils.network import get_client_ip
 
 router = APIRouter()
 
@@ -22,12 +24,6 @@ WEBSOCKET_TIMEOUT = 60.0  # Seconds to wait for message
 MAX_MESSAGE_SIZE = 65536  # 64KB max message size
 MAX_LANDMARKS_SIZE = 33  # MediaPipe has 33 pose landmarks
 MAX_PROFILE_SIZE = 10000  # 10KB max profile JSON size
-
-
-def _debug_log(message: str):
-    """Print debug message only in development environment."""
-    if cfg.ENVIRONMENT == "development":
-        print(message)
 
 
 # === RATE LIMITER ===
@@ -104,29 +100,15 @@ class ConnectionLimiter:
         self.max_per_ip = max_per_ip
         self.connections: Dict[str, int] = {}
 
-    def _get_client_ip(self, websocket: WebSocket) -> str:
-        """Extract client IP from WebSocket connection."""
-        # Check forwarded headers (from reverse proxy)
-        forwarded = websocket.headers.get("x-forwarded-for")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        real_ip = websocket.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip.strip()
-        # Direct connection
-        if websocket.client:
-            return websocket.client.host
-        return "unknown"
-
     def can_connect(self, websocket: WebSocket) -> bool:
         """Check if a new connection is allowed for this IP."""
-        ip = self._get_client_ip(websocket)
+        ip = get_client_ip(websocket)
         current = self.connections.get(ip, 0)
         return current < self.max_per_ip
 
     def add_connection(self, websocket: WebSocket) -> str:
         """Track a new connection. Returns the IP."""
-        ip = self._get_client_ip(websocket)
+        ip = get_client_ip(websocket)
         self.connections[ip] = self.connections.get(ip, 0) + 1
         return ip
 

@@ -14,13 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import json
 import time
-import config as cfg
-
-
-def _debug_log(message: str):
-    """Print debug message only in development environment."""
-    if cfg.ENVIRONMENT == "development":
-        print(message)
+from utils.debug import debug_log as _debug_log
 
 
 @dataclass
@@ -41,7 +35,15 @@ class YogaRoom:
         "poseTimeRemaining": 0,
         "sessionElapsed": 0,
         "isFormGood": False,
-        "queue": []
+        "queue": [],
+        # New manifest-based fields for unified flow model
+        "manifest": None,           # Full session manifest (sent once on load)
+        "currentSegmentIndex": 0,
+        "segmentState": "waiting",  # instructions, transitioning, establishing, active
+        "formMatchScore": 0,
+        "audioPlaying": False,
+        "interpolationProgress": 0.0,
+        "currentSegment": None      # Current segment info (poseId, side, isBridge, setId)
     })
 
 
@@ -228,6 +230,16 @@ class WebSocketManager:
         room.remotes.add(websocket)
         _debug_log(f"[WS] Remote connected to room {code}")
 
+        # Notify desktop that a remote connected
+        if room.desktop:
+            try:
+                await room.desktop.send_json({
+                    "type": "remote_connected",
+                    "remoteCount": len(room.remotes)
+                })
+            except Exception:
+                pass
+
         # Send current state to the new remote
         await websocket.send_json({
             "type": "state_sync",
@@ -251,6 +263,15 @@ class WebSocketManager:
             })
         elif websocket in room.remotes:
             room.remotes.discard(websocket)
+            # Notify desktop that a remote disconnected
+            if room.desktop:
+                try:
+                    await room.desktop.send_json({
+                        "type": "remote_disconnected",
+                        "remoteCount": len(room.remotes)
+                    })
+                except Exception:
+                    pass
 
         # Clean up empty rooms
         if room.desktop is None and len(room.remotes) == 0:
@@ -293,6 +314,33 @@ class WebSocketManager:
                 "duration": message.get("duration")
             })
 
+        elif msg_type == "manifest_loaded":
+            # Store manifest and broadcast to remotes (sent once at session start)
+            room.state["manifest"] = message.get("manifest")
+            await self.broadcast_to_remotes(code, {
+                "type": "manifest_loaded",
+                "manifest": message.get("manifest")
+            })
+
+        elif msg_type == "segment_state":
+            # Update segment state and broadcast to remotes
+            room.state["currentSegmentIndex"] = message.get("index", 0)
+            room.state["segmentState"] = message.get("state", "waiting")
+            room.state["formMatchScore"] = message.get("formScore", 0)
+            room.state["currentSegment"] = message.get("segment")
+            room.state["interpolationProgress"] = message.get("interpolationProgress", 0)
+            room.state["audioPlaying"] = message.get("audioPlaying", False)
+
+            await self.broadcast_to_remotes(code, {
+                "type": "segment_state",
+                "index": message.get("index"),
+                "state": message.get("state"),
+                "formScore": message.get("formScore"),
+                "segment": message.get("segment"),
+                "interpolationProgress": message.get("interpolationProgress"),
+                "audioPlaying": message.get("audioPlaying")
+            })
+
     async def handle_remote_message(self, code: str, message: dict):
         """Handle message from remote (phone) client."""
         code = code.strip().upper()
@@ -310,7 +358,8 @@ class WebSocketManager:
         if msg_type == "command":
             command = message.get("command")
             _debug_log(f"[WS] Command: {command}")
-            if command in ["start", "pause", "resume", "skip", "end", "toggle_voice", "toggle_ambient"]:
+            # Include skip_establishing for accessibility: force start timer from remote
+            if command in ["start", "pause", "resume", "skip", "end", "toggle_voice", "toggle_ambient", "skip_establishing"]:
                 try:
                     await room.desktop.send_json({
                         "type": "command",
