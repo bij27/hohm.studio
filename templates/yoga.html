@@ -453,10 +453,22 @@
 
         // Load poses
         async function loadPoses() {
-            const response = await fetch('/static/data/yoga/poses.json');
-            const data = await response.json();
-            poses = data.poses;
-            renderPoses();
+            try {
+                const response = await fetch('/static/data/yoga/poses.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                poses = data.poses || [];
+                if (poses.length === 0) {
+                    document.getElementById('pose-grid').innerHTML = '<p style="color: var(--color-text-secondary); text-align: center; padding: 40px;">No poses available. Please try refreshing the page.</p>';
+                    return;
+                }
+                renderPoses();
+            } catch (error) {
+                console.error('Failed to load poses:', error);
+                document.getElementById('pose-grid').innerHTML = '<p style="color: var(--color-bad); text-align: center; padding: 40px;">Failed to load poses. Please refresh the page.</p>';
+            }
         }
 
         function renderPoses() {
