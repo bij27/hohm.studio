@@ -2502,9 +2502,13 @@ class YogaSession {
 
     /**
      * Check if the current pose has reference landmarks available
-     * (either from variations or legacy pose-level).
+     * (from manifest segment, variations, or legacy pose-level).
      */
     hasReferenceLandmarks() {
+        // First check manifest segment (preferred source)
+        if (this.useManifest && this.currentSegment?.landmarks?.active?.length > 0) {
+            return true;
+        }
         if (!this.currentPose) return false;
         if (this.currentPose.reference_landmarks) return true;
         if (this.currentPose.variations && this.currentPose.variations.length > 0) {

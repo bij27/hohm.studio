@@ -271,7 +271,6 @@ class YogaScriptGenerator:
         "Trust your body.",
         "Each breath brings you deeper into the practice.",
         "You're making beautiful progress.",
-        "Honor where you are today.",
         "Listen to your body and move with intention.",
     ]
 
