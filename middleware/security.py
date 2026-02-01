@@ -139,8 +139,8 @@ def get_csp_header(nonce: str = None) -> str:
         # Frames: Google ads only
         "frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google",
 
-        # Media: self and blob (for webcam)
-        "media-src 'self' blob:",
+        # Media: self, blob (for webcam), and data (for audio unlock)
+        "media-src 'self' blob: data:",
 
         # Object/embed: none (block plugins)
         "object-src 'none'",
