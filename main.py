@@ -278,18 +278,24 @@ async def create_yoga_room(request: Request):
 @app.post("/api/yoga/voice-script")
 async def generate_voice_script(request: Request):
     """Generate voice script with audio URLs for a yoga session."""
-    data = await request.json()
+    try:
+        data = await request.json()
 
-    # Debug logging only in development
-    if cfg.ENVIRONMENT == "development":
-        print(f"[VOICE] Duration: {data.get('duration')}, Focus: {data.get('focus')}, Poses: {len(data.get('poses', []))}")
+        # Debug logging only in development
+        if cfg.ENVIRONMENT == "development":
+            print(f"[VOICE] Duration: {data.get('duration')}, Focus: {data.get('focus')}, Poses: {len(data.get('poses', []))}")
 
-    script = await generate_session_voice_script(data)
+        script = await generate_session_voice_script(data)
 
-    if cfg.ENVIRONMENT == "development":
-        print(f"[VOICE] Generated {len(script)} script items")
+        if cfg.ENVIRONMENT == "development":
+            print(f"[VOICE] Generated {len(script)} script items")
 
-    return JSONResponse({"script": script})
+        return JSONResponse({"script": script})
+    except Exception as e:
+        if cfg.ENVIRONMENT == "development":
+            print(f"[VOICE] Error generating script: {e}")
+            return JSONResponse({"error": str(e), "script": []}, status_code=500)
+        return JSONResponse({"error": "Voice generation temporarily unavailable", "script": []}, status_code=500)
 
 
 @app.post("/api/yoga/manifest")

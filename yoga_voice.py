@@ -508,36 +508,43 @@ class YogaVoiceGenerator:
         key = self._get_cache_key(text)
         return self.cache_dir / f"{key}.mp3"
 
-    async def generate_audio(self, text: str) -> str:
+    async def generate_audio(self, text: str) -> Optional[str]:
         """
         Generate audio for the given text.
-        Returns the relative URL path to the audio file.
+        Returns the relative URL path to the audio file, or None if generation fails.
         """
-        cache_path = self._get_cache_path(text)
+        try:
+            cache_path = self._get_cache_path(text)
 
-        # Return cached if exists
-        if cache_path.exists():
+            # Return cached if exists
+            if cache_path.exists():
+                return f"/static/audio/voice/{cache_path.name}"
+
+            # Ensure cache directory exists
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate with Edge TTS
+            communicate = edge_tts.Communicate(
+                text,
+                voice=VOICE,
+                rate=VOICE_RATE,
+                pitch=VOICE_PITCH
+            )
+            await communicate.save(str(cache_path))
+
             return f"/static/audio/voice/{cache_path.name}"
-
-        # Generate with Edge TTS
-        communicate = edge_tts.Communicate(
-            text,
-            voice=VOICE,
-            rate=VOICE_RATE,
-            pitch=VOICE_PITCH
-        )
-        await communicate.save(str(cache_path))
-
-        return f"/static/audio/voice/{cache_path.name}"
+        except Exception as e:
+            _debug_log(f"[VOICE] Audio generation failed for '{text[:50]}...': {e}")
+            return None
 
     async def generate_session_audio(self, script: List[Dict]) -> List[Dict]:
         """
         Generate audio for all script items.
-        Returns the script with audio URLs added.
+        Returns the script with audio URLs added (None if generation failed).
         """
         for item in script:
             audio_url = await self.generate_audio(item["text"])
-            item["audio_url"] = audio_url
+            item["audio_url"] = audio_url  # May be None if generation failed
         return script
 
     async def pregenerate_common_phrases(self):
