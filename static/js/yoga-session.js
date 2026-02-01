@@ -110,6 +110,13 @@ class YogaSession {
         // Calibration
         this.calibrationFrames = 0;
 
+        // === NEW: Anchor-based skeleton system ===
+        // Captured during calibration, used for all poses
+        this.calibrationData = null;  // { feetAnchorY, bodyHeight, shoulderWidth, centerX }
+        this.skeletonIntroPhase = 'pending';  // 'pending', 'centering', 'moving', 'anchored'
+        this.skeletonIntroStartTime = null;
+        this.skeletonCurrentY = null;  // Current Y position during intro animation
+
         // Remote control
         this.roomCode = null;
         this.ws = null;
@@ -510,6 +517,15 @@ class YogaSession {
         this.smoothedLandmarks = null;
         this.smoothedTargetPosition = null;
         this.targetPoseWarmupFrames = 0;  // Require new warmup before showing skeleton
+
+        // For first segment, trigger skeleton intro animation
+        // For subsequent segments, skeleton stays anchored
+        if (segmentIndex === 0) {
+            this.skeletonIntroPhase = 'pending';
+            this.skeletonIntroStartTime = null;
+            console.log('[SKELETON] First segment - will trigger intro animation');
+        }
+        // Keep 'anchored' state for subsequent segments
 
         // Check if this is a rotation switch (right side to left side)
         const isRotationStart = segment.isRotationStart && segment.rotationSide === 'left';
@@ -1570,6 +1586,40 @@ class YogaSession {
 
                     // Need 30 frames (~1 sec) of stable full body
                     if (this.calibrationFrames >= 30) {
+                        // === CAPTURE CALIBRATION DATA ===
+                        // This data is used for anchor-based skeleton positioning
+                        const leftShoulder = landmarks[11];
+                        const rightShoulder = landmarks[12];
+                        const leftHip = landmarks[23];
+                        const rightHip = landmarks[24];
+                        const leftAnkle = landmarks[27];
+                        const rightAnkle = landmarks[28];
+
+                        // Feet anchor point (midpoint of ankles) - this is the fixed anchor for all poses
+                        const feetAnchorX = (leftAnkle.x + rightAnkle.x) / 2;
+                        const feetAnchorY = (leftAnkle.y + rightAnkle.y) / 2;
+
+                        // Body measurements
+                        const shoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+                        const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
+                        const hipWidth = Math.abs(rightHip.x - leftHip.x);
+                        const bodyHeight = Math.abs(feetAnchorY - shoulderY);
+                        const centerX = (leftHip.x + rightHip.x) / 2;
+
+                        this.calibrationData = {
+                            feetAnchorX: feetAnchorX,
+                            feetAnchorY: feetAnchorY,
+                            shoulderY: shoulderY,
+                            bodyHeight: bodyHeight,
+                            shoulderWidth: shoulderWidth,
+                            hipWidth: hipWidth,
+                            centerX: centerX,
+                            canvasWidth: canvas.width,
+                            canvasHeight: canvas.height
+                        };
+
+                        console.log('[CALIBRATION] Captured anchor data:', this.calibrationData);
+
                         this.elements.calibrationStatus.textContent = 'Calibrated! Press Start when ready.';
                         this.elements.startBtn.disabled = false;
                         this.elements.startBtn.style.display = 'block';
@@ -2076,6 +2126,15 @@ class YogaSession {
     }
 
     drawTargetPose(ctx) {
+        // === ANCHOR-BASED SKELETON SYSTEM ===
+        // Uses calibration data to position skeleton at user's feet anchor point
+
+        // CRITICAL: Must have calibration data
+        if (!this.calibrationData) {
+            console.warn('[SKELETON] No calibration data available');
+            return;
+        }
+
         // Get reference landmarks from manifest segment or pose
         let refLandmarks = null;
 
@@ -2098,195 +2157,102 @@ class YogaSession {
             refLandmarks = this.currentPose?.reference_landmarks;
         }
 
-        // CRITICAL: Don't draw if we don't have BOTH reference AND user landmarks
+        // Must have reference landmarks
         if (!refLandmarks || refLandmarks.length === 0) {
-            this.targetPoseWarmupFrames = 0;  // Reset warmup
-            return;
-        }
-        if (!this.currentLandmarks || this.currentLandmarks.length === 0) {
-            this.targetPoseWarmupFrames = 0;  // Reset warmup
             return;
         }
 
-        // Validate user landmarks have required points
-        const userLandmarks = this.currentLandmarks;
-        const userLeftShoulder = userLandmarks[11];
-        const userRightShoulder = userLandmarks[12];
-        const userLeftHip = userLandmarks[23];
-        const userRightHip = userLandmarks[24];
-        const userLeftAnkle = userLandmarks[27];
-        const userRightAnkle = userLandmarks[28];
-
-        // Check all required landmarks exist and have valid coordinates
-        if (!userLeftShoulder || !userRightShoulder || !userLeftHip ||
-            !userRightHip || !userLeftAnkle || !userRightAnkle) {
-            this.targetPoseWarmupFrames = 0;  // Reset warmup
-            return;
-        }
-
-        // Helper to validate a coordinate is a valid number in range
         const isValidCoord = (val) => typeof val === 'number' && !isNaN(val) && isFinite(val);
-
-        // Validate all coordinates are valid numbers (not NaN/undefined)
-        if (!isValidCoord(userLeftHip.x) || !isValidCoord(userLeftHip.y) ||
-            !isValidCoord(userRightHip.x) || !isValidCoord(userRightHip.y) ||
-            !isValidCoord(userLeftShoulder.x) || !isValidCoord(userLeftShoulder.y) ||
-            !isValidCoord(userRightShoulder.x) || !isValidCoord(userRightShoulder.y) ||
-            !isValidCoord(userLeftAnkle.x) || !isValidCoord(userLeftAnkle.y) ||
-            !isValidCoord(userRightAnkle.x) || !isValidCoord(userRightAnkle.y)) {
-            this.targetPoseWarmupFrames = 0;  // Reset warmup
-            return;
-        }
-
-        // Check visibility - only draw if user body is reasonably visible
-        const avgVisibility = (
-            (userLeftShoulder.visibility || 0) +
-            (userRightShoulder.visibility || 0) +
-            (userLeftHip.visibility || 0) +
-            (userRightHip.visibility || 0)
-        ) / 4;
-
-        if (avgVisibility < 0.5) {
-            // User not clearly visible, don't show confusing skeleton
-            this.targetPoseWarmupFrames = 0;  // Reset warmup
-            return;
-        }
 
         const width = ctx.canvas.width;
         const height = ctx.canvas.height;
 
-        // User center (midpoint of hips)
-        const rawCenterX = (userLeftHip.x + userRightHip.x) / 2;
-        const rawCenterY = (userLeftHip.y + userRightHip.y) / 2;
+        // Get reference pose landmarks
+        const refLeftShoulder = refLandmarks[11];
+        const refRightShoulder = refLandmarks[12];
+        const refLeftAnkle = refLandmarks[27];
+        const refRightAnkle = refLandmarks[28];
 
-        // Validate center coordinates are within reasonable bounds (user is actually in frame)
-        // Using explicit checks to handle NaN (NaN comparisons return false)
-        if (!(rawCenterX >= 0.1 && rawCenterX <= 0.9 && rawCenterY >= 0.1 && rawCenterY <= 0.9)) {
-            this.targetPoseWarmupFrames = 0;  // Reset warmup
+        if (!refLeftShoulder || !refRightShoulder || !refLeftAnkle || !refRightAnkle) {
             return;
         }
 
-        // User body height (shoulders to ankles)
-        const userShoulderY = (userLeftShoulder.y + userRightShoulder.y) / 2;
-        const userAnkleY = (userLeftAnkle.y + userRightAnkle.y) / 2;
-        const rawBodyHeight = Math.abs(userAnkleY - userShoulderY);
-
-        // Validate body height is reasonable (10-80% of frame - not too small or too big)
-        // Using >= and <= to properly handle NaN (NaN comparisons return false)
-        if (!(rawBodyHeight >= 0.1 && rawBodyHeight <= 0.8)) {
-            this.targetPoseWarmupFrames = 0;  // Reset warmup
-            return;
-        }
-
-        // Warmup period: require several consecutive valid frames before showing skeleton
-        // This prevents jittery skeleton appearance when user is still positioning
-        this.targetPoseWarmupFrames = (this.targetPoseWarmupFrames || 0) + 1;
-
-        // Wait for at least 10 good frames (~333ms at 30fps) before showing
-        if (this.targetPoseWarmupFrames < 10) {
-            return;
-        }
-
-        // Reference pose landmarks - handle both array and object formats
-        let refLeftHip, refRightHip, refLeftShoulder, refRightShoulder, refLeftAnkle, refRightAnkle;
-
-        if (Array.isArray(refLandmarks)) {
-            refLeftHip = refLandmarks[23];
-            refRightHip = refLandmarks[24];
-            refLeftShoulder = refLandmarks[11];
-            refRightShoulder = refLandmarks[12];
-            refLeftAnkle = refLandmarks[27];
-            refRightAnkle = refLandmarks[28];
-        } else {
-            // Named landmarks format
-            refLeftHip = refLandmarks.find?.(l => l.name === 'LEFT_HIP') || refLandmarks[23];
-            refRightHip = refLandmarks.find?.(l => l.name === 'RIGHT_HIP') || refLandmarks[24];
-            refLeftShoulder = refLandmarks.find?.(l => l.name === 'LEFT_SHOULDER') || refLandmarks[11];
-            refRightShoulder = refLandmarks.find?.(l => l.name === 'RIGHT_SHOULDER') || refLandmarks[12];
-            refLeftAnkle = refLandmarks.find?.(l => l.name === 'LEFT_ANKLE') || refLandmarks[27];
-            refRightAnkle = refLandmarks.find?.(l => l.name === 'RIGHT_ANKLE') || refLandmarks[28];
-        }
-
-        // Validate reference landmarks exist and have valid coordinates
-        if (!refLeftHip || !refRightHip || !refLeftShoulder || !refRightShoulder) {
-            return;
-        }
-
-        // Check reference landmark coordinates are valid numbers
-        if (!isValidCoord(refLeftHip.x) || !isValidCoord(refLeftHip.y) ||
-            !isValidCoord(refRightHip.x) || !isValidCoord(refRightHip.y) ||
-            !isValidCoord(refLeftShoulder.x) || !isValidCoord(refLeftShoulder.y) ||
-            !isValidCoord(refRightShoulder.x) || !isValidCoord(refRightShoulder.y)) {
-            console.warn('[SKELETON] Invalid reference landmark coordinates');
-            return;
-        }
-
-        const refCenterX = (refLeftHip.x + refRightHip.x) / 2;
-        const refCenterY = (refLeftHip.y + refRightHip.y) / 2;
+        // Calculate reference pose's feet anchor and body height
+        const refFeetAnchorX = (refLeftAnkle.x + refRightAnkle.x) / 2;
+        const refFeetAnchorY = (refLeftAnkle.y + refRightAnkle.y) / 2;
         const refShoulderY = (refLeftShoulder.y + refRightShoulder.y) / 2;
+        const refBodyHeight = Math.abs(refFeetAnchorY - refShoulderY);
 
-        // Safely calculate ankle Y with fallback
-        let refAnkleY = refCenterY + 0.3;  // Default fallback
-        if (refLeftAnkle && refRightAnkle &&
-            isValidCoord(refLeftAnkle.y) && isValidCoord(refRightAnkle.y)) {
-            refAnkleY = (refLeftAnkle.y + refRightAnkle.y) / 2;
-        }
-
-        const refBodyHeight = Math.abs(refAnkleY - refShoulderY);
-        // Prevent division by zero or extremely small values
         if (!isValidCoord(refBodyHeight) || refBodyHeight < 0.05) {
-            console.warn('[SKELETON] Invalid reference body height:', refBodyHeight);
             return;
         }
 
-        // Apply smoothing to target position to prevent jitter
-        if (!this.smoothedTargetPosition) {
-            this.smoothedTargetPosition = {
-                centerX: rawCenterX,
-                centerY: rawCenterY,
-                bodyHeight: rawBodyHeight
-            };
-        } else {
-            const alpha = this.targetSmoothingFactor;
-            this.smoothedTargetPosition.centerX = this.smoothedTargetPosition.centerX * (1 - alpha) + rawCenterX * alpha;
-            this.smoothedTargetPosition.centerY = this.smoothedTargetPosition.centerY * (1 - alpha) + rawCenterY * alpha;
-            this.smoothedTargetPosition.bodyHeight = this.smoothedTargetPosition.bodyHeight * (1 - alpha) + rawBodyHeight * alpha;
+        // Use calibration data for positioning
+        const calib = this.calibrationData;
+        const scale = calib.bodyHeight / refBodyHeight;
+
+        // Handle intro animation: skeleton appears centered, then moves to feet anchor
+        let targetAnchorX = calib.feetAnchorX;
+        let targetAnchorY = calib.feetAnchorY;
+        let currentAlpha = 0.9;
+
+        // Initialize intro animation on first call
+        if (this.skeletonIntroPhase === 'pending') {
+            this.skeletonIntroPhase = 'centering';
+            this.skeletonIntroStartTime = performance.now();
+            this.skeletonCurrentY = 0.5;  // Start centered
+            console.log('[SKELETON] Starting intro animation - skeleton centered');
         }
 
-        const userCenterX = this.smoothedTargetPosition.centerX;
-        const userCenterY = this.smoothedTargetPosition.centerY;
-        const userBodyHeight = this.smoothedTargetPosition.bodyHeight;
+        const introElapsed = performance.now() - this.skeletonIntroStartTime;
 
-        // Scale factor to match user's body size
-        const scale = userBodyHeight / refBodyHeight;
+        if (this.skeletonIntroPhase === 'centering') {
+            // Phase 1: Show skeleton centered for 500ms
+            targetAnchorY = 0.5;  // Screen center
+            currentAlpha = Math.min(0.9, introElapsed / 300);  // Fade in
 
-        // Validate scale is reasonable (0.2x to 5x range)
-        if (!isValidCoord(scale) || scale < 0.2 || scale > 5) {
-            console.warn('[SKELETON] Invalid scale factor:', scale);
-            return;
+            if (introElapsed > 500) {
+                this.skeletonIntroPhase = 'moving';
+                console.log('[SKELETON] Moving to feet anchor');
+            }
+        } else if (this.skeletonIntroPhase === 'moving') {
+            // Phase 2: Animate from center to feet anchor (1 second)
+            const moveProgress = Math.min(1, (introElapsed - 500) / 1000);
+            const easeProgress = 1 - Math.pow(1 - moveProgress, 3);  // Ease out cubic
+
+            targetAnchorY = 0.5 + (calib.feetAnchorY - 0.5) * easeProgress;
+
+            if (moveProgress >= 1) {
+                this.skeletonIntroPhase = 'anchored';
+                console.log('[SKELETON] Skeleton anchored to feet');
+            }
         }
+        // Phase 3 (anchored): Use calibration anchor directly (default values above)
 
-        // Transform reference landmark to user's coordinate space
+        // Transform reference landmark to screen coordinates using calibration anchor
         const transformLandmark = (ref) => {
             if (!ref) return null;
             if (!isValidCoord(ref.x) || !isValidCoord(ref.y)) return null;
-            const x = (ref.x - refCenterX) * scale + userCenterX;
-            const y = (ref.y - refCenterY) * scale + userCenterY;
-            // Clamp to valid screen range with some margin for limbs extending off-screen
+
+            // Position relative to reference feet anchor, scaled to user's body, at target anchor position
+            const x = (ref.x - refFeetAnchorX) * scale + targetAnchorX;
+            const y = (ref.y - refFeetAnchorY) * scale + targetAnchorY;
+
             return {
                 x: Math.max(-0.5, Math.min(1.5, x)),
                 y: Math.max(-0.5, Math.min(1.5, y))
             };
         };
 
-        // Draw target pose as bright CYAN outline (distinct from white user skeleton)
+        // Draw target pose as bright CYAN outline
         ctx.save();
-        ctx.globalAlpha = 0.85;
-        ctx.strokeStyle = '#00FFFF';  // Bright cyan - high contrast with user's white skeleton
-        ctx.lineWidth = 5;
+        ctx.globalAlpha = currentAlpha;
+        ctx.strokeStyle = '#00FFFF';
+        ctx.lineWidth = 6;
         ctx.shadowColor = '#00FFFF';
-        ctx.shadowBlur = 12;
-        ctx.setLineDash([]);  // Solid line for clarity
+        ctx.shadowBlur = 15;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
         // Define pose connections
         const connections = [
@@ -2305,28 +2271,35 @@ class YogaSession {
             if (p1 && p2) {
                 const t1 = transformLandmark(p1);
                 const t2 = transformLandmark(p2);
-                ctx.beginPath();
-                // Don't mirror here - CSS transform handles mirroring for both video and canvas
-                ctx.moveTo(t1.x * width, t1.y * height);
-                ctx.lineTo(t2.x * width, t2.y * height);
-                ctx.stroke();
+                if (t1 && t2) {
+                    ctx.beginPath();
+                    ctx.moveTo(t1.x * width, t1.y * height);
+                    ctx.lineTo(t2.x * width, t2.y * height);
+                    ctx.stroke();
+                }
             }
         }
 
-        // Draw joints as circles (yellow to match target lines)
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.4)';  // Yellow/gold for target joints
+        // Draw joints as circles
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
         const jointIndices = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
         for (const i of jointIndices) {
             const p = refLandmarks[i];
             if (p) {
                 const t = transformLandmark(p);
-                ctx.beginPath();
-                // Don't mirror here - CSS transform handles it
-                ctx.arc(t.x * width, t.y * height, 8, 0, Math.PI * 2);
-                ctx.fill();
+                if (t) {
+                    ctx.beginPath();
+                    ctx.arc(t.x * width, t.y * height, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         }
+
+        // Draw feet anchor indicator (small circle at anchor point)
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+        ctx.beginPath();
+        ctx.arc(targetAnchorX * width, targetAnchorY * height, 8, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
     }
@@ -2505,7 +2478,11 @@ class YogaSession {
      * (from manifest segment, variations, or legacy pose-level).
      */
     hasReferenceLandmarks() {
-        // First check manifest segment (preferred source)
+        // Must have calibration data for anchor-based skeleton system
+        if (!this.calibrationData) {
+            return false;
+        }
+        // Check manifest segment (preferred source)
         if (this.useManifest && this.currentSegment?.landmarks?.active?.length > 0) {
             return true;
         }
