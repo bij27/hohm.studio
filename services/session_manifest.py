@@ -228,7 +228,14 @@ class SessionManifestGenerator:
 
         # Build pose sequence
         if pose_ids:
-            raw_sequence = pose_ids
+            # Filter to only poses with complete reference data
+            raw_sequence = [
+                pid for pid in pose_ids
+                if self.poses.get(pid, {}).get("reference_landmarks")
+            ]
+            if not raw_sequence:
+                _debug_log("[MANIFEST] Warning: No poses with reference data, falling back to auto")
+                raw_sequence = self._build_auto_sequence(duration_mins, focus, difficulty)
         else:
             raw_sequence = self._build_auto_sequence(duration_mins, focus, difficulty)
 
@@ -278,6 +285,13 @@ class SessionManifestGenerator:
         """Build an automatic pose sequence based on parameters."""
         total_seconds = duration_mins * 60
         available_poses = list(self.poses.values())
+
+        # Filter to only poses with complete reference data (landmarks required for skeleton overlay)
+        available_poses = [
+            p for p in available_poses
+            if p.get("reference_landmarks") and len(p.get("reference_landmarks", [])) > 0
+        ]
+        _debug_log(f"[MANIFEST] {len(available_poses)} poses with complete reference data")
 
         # Filter by focus
         if focus != "all":
