@@ -177,14 +177,75 @@ class YogaScriptGenerator:
         "Well done. Stay with the movement.",
     ]
 
-    # Flowing transitions (continuous movement, no breaks)
+    # Pose-to-pose flow transitions with detailed body movement instructions
+    POSE_TRANSITIONS = {
+        # From Warrior
+        ("veerabhadrasana", "vrukshasana"): "Step your back foot forward to meet your front foot. Ground through your standing leg, then slowly lift your other foot to rest on your inner thigh.",
+        ("veerabhadrasana", "triangle"): "Straighten your front leg and open your hips to the side. Extend your arms wide, then reach toward your front foot as you come into Triangle.",
+        ("veerabhadrasana", "utkatakonasana"): "Turn your back foot out and pivot to face forward. Widen your stance, bend both knees deeply, and sink into Goddess pose.",
+        ("veerabhadrasana", "downward-dog"): "Place your hands on the mat framing your front foot. Step your front foot back to meet the other, lifting your hips high into Downward Dog.",
+        ("veerabhadrasana", "ardhachandrasana"): "Shift your weight onto your front foot and place your front hand on the mat. Lift your back leg parallel to the ground and open your chest to the side.",
+        ("veerabhadrasana", "natarajasana"): "Step your back foot forward and find your balance on your front leg. Reach back with one hand to grab your opposite ankle, then hinge forward.",
+
+        # From Tree
+        ("vrukshasana", "veerabhadrasana"): "Lower your raised foot to the ground behind you, stepping back into a lunge. Bend your front knee and sink your hips into Warrior.",
+        ("vrukshasana", "ardhachandrasana"): "Keep your standing leg strong and hinge forward at your hips. Extend your raised leg behind you as you reach one hand toward the ground.",
+        ("vrukshasana", "natarajasana"): "Lower your raised foot slightly and catch your ankle with your hand. Press your foot into your palm as you hinge forward into Dancer.",
+        ("vrukshasana", "utkatakonasana"): "Lower your raised foot wide to the side, turning your toes outward. Bend both knees deeply and sink your hips into Goddess pose.",
+        ("vrukshasana", "triangle"): "Lower your raised foot wide to the side. Straighten both legs, extend your arms, and reach toward one foot as you fold into Triangle.",
+
+        # From Downward Dog
+        ("downward-dog", "veerabhadrasana"): "Step your right foot forward between your hands. Ground your back heel and rise up, bending your front knee into Warrior.",
+        ("downward-dog", "triangle"): "Step your foot forward and rise to standing with feet wide. Turn your front foot out, extend your arms, and fold sideways into Triangle.",
+        ("downward-dog", "utkatakonasana"): "Walk your feet toward your hands and rise to standing. Step your feet wide, turn your toes out, and sink into Goddess pose.",
+        ("downward-dog", "vrukshasana"): "Walk your feet toward your hands and slowly roll up to standing. Shift your weight to one leg and lift the other foot to your inner thigh.",
+
+        # From Triangle
+        ("triangle", "veerabhadrasana"): "Bend your front knee and square your hips forward. Sink deeper as you transition into Warrior pose.",
+        ("triangle", "utkatakonasana"): "Bend both knees and turn your feet to point outward. Lower your hips and bring your torso upright into Goddess.",
+        ("triangle", "ardhachandrasana"): "Bend your front knee slightly and shift your weight forward. Lift your back leg as you bring your bottom hand to the mat for Half Moon.",
+        ("triangle", "downward-dog"): "Bring both hands to the mat inside your front foot. Step back to meet your feet and lift your hips high into Downward Dog.",
+
+        # From Goddess
+        ("utkatakonasana", "veerabhadrasana"): "Pivot on your feet, turning to face one direction. Extend your back leg straight as you sink into a Warrior lunge.",
+        ("utkatakonasana", "triangle"): "Straighten one leg while keeping the other bent. Extend your arms wide and reach toward your straight leg into Triangle.",
+        ("utkatakonasana", "vrukshasana"): "Shift your weight to one leg and bring your feet together. Lift your other foot to your inner thigh as you rise into Tree.",
+        ("utkatakonasana", "downward-dog"): "Bring your hands to the mat and step your feet back. Lift your hips high, coming into Downward Dog.",
+
+        # From Half Moon
+        ("ardhachandrasana", "veerabhadrasana"): "Slowly lower your lifted leg behind you into a lunge. Lift your torso upright and settle into Warrior pose.",
+        ("ardhachandrasana", "vrukshasana"): "Bring your extended leg down and draw your foot to your inner thigh. Lift your torso upright into Tree pose.",
+        ("ardhachandrasana", "triangle"): "Lower your lifted leg to the ground behind you. Keep both legs straight as you open into Triangle.",
+        ("ardhachandrasana", "downward-dog"): "Lower your lifted leg and bring both hands to the mat. Step back and lift your hips into Downward Dog.",
+
+        # From Dancer
+        ("natarajasana", "vrukshasana"): "Gently release your back foot and draw it to your inner thigh. Stand tall in Tree pose.",
+        ("natarajasana", "veerabhadrasana"): "Release your foot and step it back behind you into a lunge. Sink your hips into Warrior.",
+        ("natarajasana", "ardhachandrasana"): "Release your foot and extend your leg straight behind you. Lower your torso and reach toward the ground for Half Moon.",
+        ("natarajasana", "downward-dog"): "Release your back foot and fold forward, bringing your hands to the mat. Step back into Downward Dog.",
+
+        # From Butterfly
+        ("baddhakonasana", "downward-dog"): "Release your feet and come onto your hands and knees. Tuck your toes and lift your hips into Downward Dog.",
+        ("baddhakonasana", "vrukshasana"): "Uncross your legs and rise to standing. Ground through one foot and lift the other to your inner thigh.",
+        ("baddhakonasana", "utkatakonasana"): "Rise to standing, keeping your feet wide and toes turned out. Bend your knees and sink into Goddess.",
+    }
+
+    # Same-pose side switch transitions
+    SIDE_SWITCH_TRANSITIONS = {
+        "vrukshasana": "Slowly lower your foot to the ground. Shift your weight to your other leg and lift your opposite foot to your inner thigh.",
+        "veerabhadrasana": "Step your feet together and pause. Now step your other foot forward, bending into Warrior on the opposite side.",
+        "ardhachandrasana": "Lower your lifted leg and pivot to face the opposite direction. Shift your weight and lift your other leg into Half Moon.",
+        "natarajasana": "Release your foot and stand tall. Shift your weight to your other leg, reach back for your opposite ankle, and flow into Dancer.",
+        "triangle": "Rise up and pivot your feet to face the opposite direction. Extend your arms and fold toward your other leg.",
+        "utkatakonasana": "Stay low in your squat as you shift your weight. Goddess is symmetric, so simply re-center your stance.",
+    }
+
+    # Generic fallback transitions (used when no specific transition exists)
     FLOW_TRANSITIONS = [
-        "Smoothly transition now.",
-        "Flow into the next position.",
-        "Let the movement guide you.",
-        "Seamlessly move forward.",
-        "Continue the flow.",
-        "Keep moving with your breath.",
+        "Mindfully transition to the next pose.",
+        "Flow with intention into the next position.",
+        "Let your breath guide you as you move.",
+        "Transition smoothly when you're ready.",
     ]
 
     # Rotation switch (right side to left side)
@@ -447,6 +508,14 @@ class YogaScriptGenerator:
                 next_pose.get("rotationSide") == "left"
             )
 
+            # Check if this is a same-pose side switch
+            is_side_switch = (
+                next_pose and
+                next_pose.get("id") == pose_id and
+                side is not None and
+                next_pose.get("side") != side
+            )
+
             # Pose completion with flowing transition
             if i < len(poses) - 1:
                 # Not the last pose - flow into next
@@ -458,20 +527,63 @@ class YogaScriptGenerator:
                         "timing": "pose_end",
                         "pose_index": i
                     })
+                elif is_side_switch:
+                    # Same pose, switching sides
+                    side_transition = cls.SIDE_SWITCH_TRANSITIONS.get(pose_id)
+                    if side_transition:
+                        script.append({
+                            "type": "pose_complete",
+                            "text": random.choice(cls.POSE_COMPLETE),
+                            "timing": "pose_end",
+                            "pose_index": i
+                        })
+                        script.append({
+                            "type": "flow_transition",
+                            "text": side_transition,
+                            "timing": "pose_end",
+                            "pose_index": i,
+                            "from_pose": pose_id,
+                            "to_pose": pose_id,
+                            "side_switch": True
+                        })
+                    else:
+                        script.append({
+                            "type": "pose_complete",
+                            "text": random.choice(cls.POSE_COMPLETE),
+                            "timing": "pose_end",
+                            "pose_index": i
+                        })
                 else:
-                    # Normal flowing transition
+                    # Pose-to-pose transition
+                    next_pose_id = next_pose.get("id") if next_pose else None
+                    transition_key = (pose_id, next_pose_id)
+                    specific_transition = cls.POSE_TRANSITIONS.get(transition_key)
+
                     script.append({
                         "type": "pose_complete",
                         "text": random.choice(cls.POSE_COMPLETE),
                         "timing": "pose_end",
                         "pose_index": i
                     })
-                    script.append({
-                        "type": "flow_transition",
-                        "text": random.choice(cls.FLOW_TRANSITIONS),
-                        "timing": "pose_end",
-                        "pose_index": i
-                    })
+
+                    if specific_transition:
+                        # Use specific pose-to-pose transition
+                        script.append({
+                            "type": "flow_transition",
+                            "text": specific_transition,
+                            "timing": "pose_end",
+                            "pose_index": i,
+                            "from_pose": pose_id,
+                            "to_pose": next_pose_id
+                        })
+                    else:
+                        # Fallback to generic transition
+                        script.append({
+                            "type": "flow_transition",
+                            "text": random.choice(cls.FLOW_TRANSITIONS),
+                            "timing": "pose_end",
+                            "pose_index": i
+                        })
             else:
                 # Last pose - actual completion
                 script.append({
