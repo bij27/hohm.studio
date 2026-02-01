@@ -12,7 +12,7 @@ from models.database import init_db, close_pool, cleanup_old_sessions
 from middleware.security import SecurityMiddleware, RequestValidationMiddleware, validate_websocket_origin
 from websocket_manager import ws_manager
 import asyncio
-from yoga_voice import generate_session_voice_script
+from yoga_voice import generate_session_voice_script, test_tts_connectivity
 from services.session_manifest import generate_manifest
 from services.audit_logger import ManifestValidator
 from utils.network import get_client_ip
@@ -296,6 +296,14 @@ async def generate_voice_script(request: Request):
             print(f"[VOICE] Error generating script: {e}")
             return JSONResponse({"error": str(e), "script": []}, status_code=500)
         return JSONResponse({"error": "Voice generation temporarily unavailable", "script": []}, status_code=500)
+
+
+@app.get("/api/yoga/voice-test")
+async def test_voice_system():
+    """Diagnostic endpoint to test Edge TTS connectivity."""
+    result = await test_tts_connectivity()
+    status_code = 200 if result.get("test_audio_generated") else 500
+    return JSONResponse(result, status_code=status_code)
 
 
 @app.post("/api/yoga/manifest")

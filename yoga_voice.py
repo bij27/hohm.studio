@@ -8,9 +8,14 @@ import asyncio
 import hashlib
 import os
 import random
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional
 from utils.debug import debug_log as _debug_log
+
+# Configure logging for voice generation (always enabled)
+logger = logging.getLogger("yoga_voice")
+logger.setLevel(logging.INFO)
 
 
 # Voice configuration - Indian-British female voice
@@ -532,8 +537,16 @@ class YogaVoiceGenerator:
             )
             await communicate.save(str(cache_path))
 
-            return f"/static/audio/voice/{cache_path.name}"
+            # Verify file was created
+            if cache_path.exists():
+                logger.info(f"[VOICE] Generated audio: {cache_path.name}")
+                return f"/static/audio/voice/{cache_path.name}"
+            else:
+                logger.error(f"[VOICE] File not created after generation: {cache_path}")
+                return None
         except Exception as e:
+            # Log errors in production too - voice failures are important
+            logger.error(f"[VOICE] Audio generation failed for '{text[:50]}...': {type(e).__name__}: {e}")
             _debug_log(f"[VOICE] Audio generation failed for '{text[:50]}...': {e}")
             return None
 
@@ -567,6 +580,57 @@ class YogaVoiceGenerator:
 
 # Singleton instance
 voice_generator = YogaVoiceGenerator()
+
+
+async def test_tts_connectivity() -> dict:
+    """Test Edge TTS connectivity and return diagnostic info."""
+    result = {
+        "cache_dir_exists": False,
+        "cache_dir_writable": False,
+        "tts_available": False,
+        "test_audio_generated": False,
+        "error": None
+    }
+
+    try:
+        # Check cache directory
+        result["cache_dir_exists"] = AUDIO_CACHE_DIR.exists()
+
+        # Try to create cache dir if not exists
+        AUDIO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        result["cache_dir_exists"] = True
+
+        # Test write permissions
+        test_file = AUDIO_CACHE_DIR / ".write_test"
+        try:
+            test_file.write_text("test")
+            test_file.unlink()
+            result["cache_dir_writable"] = True
+        except Exception as e:
+            result["error"] = f"Write test failed: {e}"
+            return result
+
+        # Test Edge TTS
+        try:
+            test_text = "Test."
+            communicate = edge_tts.Communicate(test_text, voice=VOICE)
+            test_path = AUDIO_CACHE_DIR / "tts_test.mp3"
+            await communicate.save(str(test_path))
+
+            if test_path.exists():
+                result["tts_available"] = True
+                result["test_audio_generated"] = True
+                # Clean up test file
+                test_path.unlink()
+            else:
+                result["error"] = "TTS save completed but file not created"
+        except Exception as e:
+            result["error"] = f"TTS test failed: {type(e).__name__}: {e}"
+
+    except Exception as e:
+        result["error"] = f"Diagnostic failed: {type(e).__name__}: {e}"
+
+    return result
 
 
 async def generate_session_voice_script(session_data: Dict) -> List[Dict]:
