@@ -11,8 +11,11 @@ venv/
 .vscode
 .claude
 data/
-static/data/
 node_modules/
 .dockerignore
 Dockerfile
 .gemini
+# Development-only directories
+_yoga_dataset_temp/
+reference_captures/
+scripts/models/
