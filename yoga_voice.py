@@ -126,6 +126,14 @@ class YogaScriptGenerator:
         "Maintain the position. You're doing wonderfully.",
         "Stay present in this pose. Feel your breath.",
         "Keep holding. Notice the sensations in your body.",
+        "Breathe into the stretch and hold steady.",
+        "Find stillness here. Let your breath anchor you.",
+        "Stay with it. Your body is getting stronger.",
+        "Embrace this moment. You're exactly where you need to be.",
+        "Feel the energy flowing through your body.",
+        "Ground yourself and breathe through any tension.",
+        "You're building strength with every breath.",
+        "Notice how your body responds to stillness.",
     ]
 
     # Breath cues for vinyasa style
@@ -134,6 +142,12 @@ class YogaScriptGenerator:
         "Take a slow breath in.",
         "Breathe in.",
         "Inhale, expanding your chest.",
+        "Draw a deep breath in.",
+        "Fill your lungs completely.",
+        "Inhale through your nose.",
+        "Breathe in fully.",
+        "Take in a nourishing breath.",
+        "Inhale and create space.",
     ]
 
     EXHALE_CUES = [
@@ -141,6 +155,12 @@ class YogaScriptGenerator:
         "Breathe out.",
         "Release the breath.",
         "Exhale, letting go of tension.",
+        "Let the breath go completely.",
+        "Breathe out any stress.",
+        "Exhale through your mouth.",
+        "Release and let go.",
+        "Soften as you breathe out.",
+        "Exhale and surrender.",
     ]
 
     BREATH_HOLDS = [
@@ -149,6 +169,15 @@ class YogaScriptGenerator:
         "Let your breath guide you.",
         "Inhale to lengthen, exhale to deepen.",
         "Breathe naturally and stay present.",
+        "Your breath is your anchor. Keep it flowing.",
+        "Slow, steady breaths. You've got this.",
+        "With each exhale, release a little more.",
+        "Breathe deeply into your belly.",
+        "Let your breath soften any tension.",
+        "Find your rhythm. Inhale calm, exhale stress.",
+        "Your breath connects mind and body.",
+        "Stay connected to your breath.",
+        "Each breath deepens your practice.",
     ]
 
     # Form feedback
@@ -156,6 +185,13 @@ class YogaScriptGenerator:
         "Beautiful form. Keep it up.",
         "You're aligned perfectly. Well done.",
         "Excellent posture. Stay with it.",
+        "That's it. You've found the pose.",
+        "Your alignment looks wonderful.",
+        "Perfect. Hold it right there.",
+        "You're nailing this pose.",
+        "Great work. Your form is on point.",
+        "Yes, that's exactly right.",
+        "Beautiful. Stay right where you are.",
     ]
 
     ADJUST_FORM = [
@@ -175,6 +211,14 @@ class YogaScriptGenerator:
         "Lovely. Let's continue moving.",
         "Wonderful. Keep flowing.",
         "Well done. Stay with the movement.",
+        "Perfect. Let's move together.",
+        "Graceful. Continue the flow.",
+        "Excellent. Keep the energy moving.",
+        "That was beautiful. Onward we go.",
+        "Nicely done. Let's transition.",
+        "Breathe and flow into the next pose.",
+        "Great work. Keep moving with intention.",
+        "Wonderful expression. Let's continue.",
     ]
 
     # Pose-to-pose flow transitions with detailed body movement instructions
@@ -246,6 +290,14 @@ class YogaScriptGenerator:
         "Flow with intention into the next position.",
         "Let your breath guide you as you move.",
         "Transition smoothly when you're ready.",
+        "Move gracefully into the next shape.",
+        "Let the movement come naturally.",
+        "Breathe as you flow to the next pose.",
+        "Gently shift your body into position.",
+        "Follow your body's natural rhythm.",
+        "Ease into the transition with awareness.",
+        "Move with the same calm you've cultivated.",
+        "Let each movement be deliberate and soft.",
     ]
 
     # Rotation switch (right side to left side)
@@ -254,6 +306,12 @@ class YogaScriptGenerator:
         "Beautiful flow. Time to balance with your left side.",
         "Right side complete. Let's bring that same energy to your left.",
         "Wonderful. Now we'll repeat the sequence on your left side.",
+        "That was lovely. Let's balance it out on the left side.",
+        "Great work. Time to switch and flow through the left.",
+        "Right side done. Let's create symmetry on your left.",
+        "Perfect. Now let's give the same attention to your left side.",
+        "You've earned this transition. Left side awaits.",
+        "Beautiful. Let's mirror that energy on the opposite side.",
     ]
 
     # Legacy transitions (kept for compatibility)
@@ -272,6 +330,18 @@ class YogaScriptGenerator:
         "Each breath brings you deeper into the practice.",
         "You're making beautiful progress.",
         "Listen to your body and move with intention.",
+        "You're stronger than you think.",
+        "Every pose is a chance to grow.",
+        "Your dedication is inspiring.",
+        "Feel the calm settling in.",
+        "You're creating space in your body and mind.",
+        "This is your time. Embrace it.",
+        "Notice how far you've come.",
+        "Your practice is unique and beautiful.",
+        "Be patient and kind with yourself.",
+        "You're doing exactly what your body needs.",
+        "Let go of perfection. You're already enough.",
+        "Your effort today matters.",
     ]
 
     # Session closing
@@ -279,18 +349,36 @@ class YogaScriptGenerator:
         "We're now entering our cool-down phase.",
         "Let's begin to slow down and relax.",
         "Time to gently wind down our practice.",
+        "Let's ease into our closing sequence.",
+        "We're approaching the end. Let's slow our breath.",
+        "Time to honor your body with some rest.",
+        "Let's transition into our final moments together.",
+        "Begin to soften and release any remaining tension.",
     ]
 
     SESSION_ENDINGS = [
         "You've completed your yoga session. Take a moment to appreciate your practice today.",
         "Wonderful work. Your practice is complete. Carry this peace with you.",
         "Namaste. Thank you for practicing today. You've done beautifully.",
+        "Your session is complete. You showed up for yourself today, and that matters.",
+        "Well done. Your body and mind thank you for this time.",
+        "And release. You did beautifully.",
+        "Your practice today has planted seeds of wellness. Nurture them.",
+        "Thank you for moving with me. You've honored your body well.",
+        "You've completed your practice. Carry this calm into the rest of your day.",
+        "Beautiful work. Remember this feeling of peace.",
     ]
 
     FINAL_WORDS = [
         "When you're ready, gently open your eyes and return to your day.",
         "Take your time coming back. You've given yourself a beautiful gift today.",
         "Rest here as long as you need. Thank you for your practice.",
+        "Slowly begin to deepen your breath and wiggle your fingers and toes.",
+        "Take one more deep breath. You're ready to continue your day.",
+        "Open your eyes when you're ready. Move gently back into the world.",
+        "Seal your practice with gratitude. Namaste.",
+        "Let the benefits of this practice stay with you throughout your day.",
+        "Remember, you can return to this calm whenever you need it.",
     ]
 
     @classmethod
